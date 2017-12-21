@@ -42,73 +42,6 @@ admin_chat_id = params.admin_chat_id
 
 lock = Lock()
 
-# dont use that anymore. too many reqs -> agb page. scrape all details (less than with this method) from main page now
-# def get_info_from_offer(url):
-#     page = tor_request(url)
-#     # might return None if agb page
-#     if page:
-#         soup = BeautifulSoup(page.content, 'lxml')
-#         title = soup.title.string
-#
-#         grey_box = soup.find('div', class_='row bg-grey-box')
-#         size_and_rent_children = list(grey_box.children)
-#         size = list(size_and_rent_children[3].children)[1].get_text(strip=True)
-#         rent = list(size_and_rent_children[5].children)[1].get_text(strip=True)
-#
-#         cost_adress_avail_row = grey_box.next_sibling.next_sibling
-#         availability_div = list(cost_adress_avail_row.children)[5]
-#         availability_p = list(availability_div.children)[3]
-#         availability = availability_p.get_text(' ', strip=True).replace(
-#             'Übernachtung', '- Übernachtung').replace('Online', '- Online').replace('Tausch', '- Tausch')
-#
-#         details_and_searching_for_row = list(
-#             cost_adress_avail_row.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.children
-#         )
-#         wg_details_splittext = details_and_searching_for_row[3].get_text('--split--')
-#         detail_list = wg_details_splittext.split('--split--')
-#         wg_details_list = []
-#         langs_list = []
-#
-#         # collect languages to a list (maybe for future filter, but probably not very much needed
-#         langs_inc = False
-#         for detail in detail_list[1:]:
-#             detail_stripped = detail.strip().replace('  ', '')
-#             if detail_stripped:
-#                 if langs_inc:
-#                     langs_list.append(detail_stripped)
-#                 else:
-#                     if 'Sprache' in detail_stripped:
-#                         langs_inc = True
-#                     stuff = detail_stripped.replace('\n', ' ').replace('  ', ' ')
-#                     wg_details_list.append(stuff)
-#
-#         wg_details = '\n'.join(wg_details_list)
-#         languages = [language.replace(' ', '').replace(',', '') for language in langs_list]
-#
-#         searching_for = details_and_searching_for_row[5].get_text(' ', strip=True).replace(
-#             '\n', ' ').replace('  ', '').replace('Mannzw', 'Mann zw')
-#
-#         info = {
-#             'title': title,
-#             'size': size,
-#             'rent': rent,
-#             'availability': availability,
-#             'wg_details': wg_details,
-#             'languages': languages,
-#             'searching_for': searching_for,
-#         }
-#         return info
-
-# def help_reply(bot: Bot, update: Update):
-#     update.message.reply_text(
-#         'Hier einige Beispiele zu meiner Benutzung:\n'
-#         '/subscribe FFM - abonniere Benachrichtigungen zu WGs in FFM\n'
-#         '/filter_rent 499 - beschränke dich auf Angebote bis maximal 499€\n'
-#         '/filter_sex m - nur Angebote die auch nach Männern suchen'
-#         '/unsubscribe - keine Benachrichtigungen mehr\n'
-#         'Städte: BER, HH, FFM, MUC, Koeln, Stuggi'
-#     )
-
 
 def tor_request(url: str):
     global consecutive_tor_reqs
@@ -194,12 +127,6 @@ def check_filters(chat_id, info):
                 'w': '🚺' in offer_sex,
                 'm': '🚹' in offer_sex,
             }
-            # if '🚺' in offer_sex:
-            #     offer_sex_dict['w'] = True
-            #     offer_sex_dict['m'] = '🚹' in offer_sex
-            # else:
-            #     offer_sex_dict['m'] = '🚹' in offer_sex
-
             if not offer_sex_dict[filters[chat_id]['sex']]:
                 filters_accept = False
         except ValueError as e:
@@ -563,9 +490,7 @@ def already_had_cmd(bot: Bot, update: Update):
 def current_offers_cmd(bot: Bot, update: Update):
     global current_offers
     global admin_chat_id
-    # print('in current offers')
     offerlist = [link for link in current_offers['MUC'].keys()]
-    # print('send currentoffers, len: ', len(offerlist))
     if len(offerlist) == 0:
         update.message.reply_text('empty offerlist')
     else:
