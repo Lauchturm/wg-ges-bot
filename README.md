@@ -3,7 +3,7 @@ Short english readme at the bottom.
 Hallo, ich bin ein alter Roboter der WG-Mk2 Reihe und schon etwas eingerostet, aber ich wette ich hab' es noch drauf! 
 Wenn du an mich glaubst, werde ich dir die WG deiner Träume zeigen, _Beep Boop_. Mit meiner Hilfe verpasst du nämlich 
 keine Angebote auf [wg-gesucht.de]() mehr. Mich gibt es für Berlin, Hamburg, München, Frankfurt, 
-Köln und Stuttgart.
+Köln und Stuttgart. Für andere Städte: siehe Ende. 
 
 Ich spreche über Telegram zu dir. Das ist ein Messenger (so wie damals dieses Whatsapp, als ich noch jung war), den du 
 im Browser, am Handy oder auf dem PC benutzen kannst. Du findest ihn auf [t.me]().
@@ -14,7 +14,6 @@ Sobald du Telegram hast kannst du mir schreiben. Such dazu einfach in Telegram n
 Super, du hast mich gefunden! Wenn du jetzt unten auf start klickst erkläre ich mich dir direkt persönlich. Hier ist 
 meine Lieblingssprache mit der du mir **Befehle _erteilen_** kannst. Bitte nichts unvernünftiges, meine Baureihe hat weder 
 ein Humormodul, noch eines für Moral:
-
 
 /subscribe <_Stadtkürzel_> (BER, HH, MUC, FFM, Koeln, Stuggi) - Bsp: "/subscribe FFM" für Angebote in FFM
 
@@ -31,8 +30,11 @@ Wenn du mal nicht weiter weißt, einfach "/" schreiben und du bekommst Vorschlä
 Ich freue mich sehr über Feedback, gefundene Fehler, stolze Berichte vom WG-Fund, Liebesbekundungen, Beleidigungen an 
 [wg-ges-bot@web.de]().
 
-Hättest du diesen Bot gerne für eine andere Stadt, dann schreib mir einfach. Ich helfe dir gerne mit der kleinen 
-Anpassung des Codes. Laufen lassen musst du ihn allerdings selbst. Dazu reicht z.B. ein Raspberry Pi.
+Hättest du diesen Bot gerne für eine **andere Stadt**, dann schreib mir einfach. Ich helfe dir gerne mit der kleinen 
+Anpassung des Codes. Laufen lassen musst du ihn allerdings vermutlich selbst. Dazu reicht z.B. ein Raspberry Pi bei dir 
+daheim.  
+Jemand hat den Bot angepasst und sucht für euch in Karlsruhe, Freiburg, Heidelberg, Stuttgart, Konstanz und 
+Mannheim. Ihr findet ihn auf Telegram unter @wg_gesucht_ka_bot oder [t.me/wg_gesucht_ka_bot]().
 
 Ich bin NICHT von [wg-gesucht.de](), sondern ein Privatprojekt. Ich verdiene nichts mit diesem Service und habe das auch
 nicht vor. Ich möchte weder der Seite noch euch oder Anderen Schaden zufügen. Ich speichere weder eure Daten, noch die

@@ -62,7 +62,7 @@ def tor_request(url: str):
         'User-Agent': ua.random,
     }
     # logging.info('{} user agent: {}'.format(datetime.datetime.now(), headers['User-Agent']))
-    with TorRequest(proxy_port=9050, ctrl_port=9051, password='PorSwart33') as tr:
+    with TorRequest(proxy_port=9050, ctrl_port=9051, password=params.tor_pwd) as tr:
         with lock:
             time.sleep(uniform(TIME_BETWEEN_REQUESTS, TIME_BETWEEN_REQUESTS + 2))
             page = tr.get(url, headers=headers)
@@ -191,7 +191,9 @@ def job_scrape_city(bot: Bot, job: Job):
         # might return None due to agb page
         try:
             if page:
-                soup = BeautifulSoup(page.content, 'lxml')
+                # no dependencies, so use that one if it works
+                soup = BeautifulSoup(page.content, 'html.parser')
+                # soup = BeautifulSoup(page.content, 'lxml')
                 listings_with_ads_and_hidden = soup.find_all(class_="list-details-ad-border")
                 listings = []
 
