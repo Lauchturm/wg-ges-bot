@@ -1,5 +1,6 @@
 from telegram.ext import CommandHandler, Updater, Filters, JobQueue, Job
 from telegram import Bot, Update, ParseMode
+from telegram.error import Unauthorized
 from collections import defaultdict
 import datetime
 import logging
@@ -16,12 +17,12 @@ from fake_useragent import UserAgent
 import params
 
 URLS = {
-    'BER': 'https://www.wg-gesucht.de/wg-zimmer-in-Berlin.8.0.1.0.html',
-    'HH': 'https://www.wg-gesucht.de/wg-zimmer-in-Hamburg.55.0.1.0.html',
-    'MUC': 'https://www.wg-gesucht.de/wg-zimmer-in-Muenchen.90.0.1.0.html',
-    'Koeln': 'https://www.wg-gesucht.de/wg-zimmer-in-Koeln.73.0.1.0.html',
-    'FFM': 'https://www.wg-gesucht.de/wg-zimmer-in-Frankfurt-am-Main.41.0.1.0.html',
-    'Stuggi': 'https://www.wg-gesucht.de/wg-zimmer-in-Stuttgart.124.0.1.0.html',
+    'ber': 'https://www.wg-gesucht.de/wg-zimmer-in-Berlin.8.0.1.0.html',
+    'hh': 'https://www.wg-gesucht.de/wg-zimmer-in-Hamburg.55.0.1.0.html',
+    'muc': 'https://www.wg-gesucht.de/wg-zimmer-in-Muenchen.90.0.1.0.html',
+    'koeln': 'https://www.wg-gesucht.de/wg-zimmer-in-Koeln.73.0.1.0.html',
+    'ffm': 'https://www.wg-gesucht.de/wg-zimmer-in-Frankfurt-am-Main.41.0.1.0.html',
+    'stuggi': 'https://www.wg-gesucht.de/wg-zimmer-in-Stuttgart.124.0.1.0.html',
 }
 TIME_BETWEEN_REQUESTS = 9.5
 max_consecutive_tor_reqs = 2000
@@ -92,7 +93,7 @@ def tor_request(url: str):
                 return page
 
 
-def fill_initially_seen(city, listings):
+def fill_initially_seen(city: str, listings):
     global current_offers
 
     listings_rev = reversed(listings)
@@ -107,7 +108,7 @@ def fill_initially_seen(city, listings):
                                          'wg-ges-bot@web.de what you did to get to see this, thanks.'
 
 
-def check_filters(chat_id, info):
+def check_filters(chat_id, info) -> bool:
     global filters
     filters_accept = True
     # maxrentfilter /filter_rent <max value>
@@ -223,35 +224,44 @@ def job_scrape_city(bot: Bot, job: Job):
 
 
 def job_notify_subscriber(bot: Bot, job: Job):
-    global current_offers
-    global already_had
+    try:
+        global current_offers
+        global already_had
 
-    chat_id = job.context['chat_id']
-    city = job.context['city']
-    # for initial run populate already_had[chat_id] with the present page to know "old" offers
-    # "if not already_had[chat_id]" does NOT WORK (because of defaultdict?)
-    if already_had[chat_id] == []:
-        already_had[chat_id] = [link for link in current_offers[city].keys()]
-        return
+        chat_id = job.context['chat_id']
+        city = job.context['city']
+        # for initial run populate already_had[chat_id] with the present page to know "old" offers
+        # "if not already_had[chat_id]" does NOT WORK (because of defaultdict?)
+        if already_had[chat_id] == []:
+            already_had[chat_id] = [link for link in current_offers[city].keys()]
+            return
 
-    new_already_had = []
-    for link_to_offer, info in current_offers[city].items():
-        if link_to_offer not in already_had[chat_id]:
-            filters_accept = check_filters(chat_id, info)
-            if filters_accept:
-                # offer_id = link_to_offer.split('.')[-2]
-                # message_to_link = 'https://www.wg-gesucht.de/nachricht-senden.html?id={}'.format(offer_id)
-                info_string = '{}\n{} - {}€\n{}\n{}\n{}'.format(
-                    info['title'],
-                    info['size'],
-                    info['rent'],
-                    info['wg_details'],
-                    info['availability'],
-                    info['searching_for'],
-                )
-                bot.sendMessage(chat_id=chat_id, text='\n'.join((info_string, link_to_offer)))
-        new_already_had.append(link_to_offer)
-    already_had[chat_id] = new_already_had
+        new_already_had = []
+        for link_to_offer, info in current_offers[city].items():
+            if link_to_offer not in already_had[chat_id]:
+                filters_accept = check_filters(chat_id, info)
+                if filters_accept:
+                    # offer_id = link_to_offer.split('.')[-2]
+                    # message_to_link = 'https://www.wg-gesucht.de/nachricht-senden.html?id={}'.format(offer_id)
+                    info_string = '{}\n{} - {}€\n{}\n{}\n{}'.format(
+                        info['title'],
+                        info['size'],
+                        info['rent'],
+                        info['wg_details'],
+                        info['availability'],
+                        info['searching_for'],
+                    )
+                    bot.sendMessage(chat_id=chat_id, text='\n'.join((info_string, link_to_offer)))
+            new_already_had.append(link_to_offer)
+        already_had[chat_id] = new_already_had
+    except Unauthorized:
+        logging.warning('{} unauthorized in job notify. removing job'.format(datetime.datetime.now()))
+        try:
+            del filters[chat_id]
+            del already_had[chat_id]
+        except Exception:
+            pass
+        job.schedule_removal()
 
 
 def scrape_begin_all(bot: Bot, update: Update, job_queue: JobQueue, chat_data):
@@ -262,7 +272,7 @@ def scrape_begin_all(bot: Bot, update: Update, job_queue: JobQueue, chat_data):
 
 def scrape_begin_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, city=None):
     if not city:
-        city = update.message.text[19:]
+        city = update.message.text[19:].lower()
     if city in URLS.keys():
         job_already_present = False
         for other_job in job_queue.jobs():
@@ -275,9 +285,8 @@ def scrape_begin_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, 
             update.message.reply_text(
                 'wg_ges scraper job was already set! /scrape_stop_{} to kill it'.format(city))
         else:
-            job = job_queue.run_repeating(callback=job_scrape_city, interval=75, first=1, context=city)
+            job = job_queue.run_repeating(callback=job_scrape_city, interval=75, first=10, context=city)
             chat_data[city] = job
-
             update.message.reply_text(
                 'wg_ges scraper job successfully set! /subscribe {} to test, /unsubscribe to stop, /scrape_stop_city '
                 '{} to stop it.'.format(city, city))
@@ -310,7 +319,7 @@ def scrape_stop_city(bot: Bot, update: Update, chat_data, city=None):
 
 def subscribe_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, city=None):
     if not city:
-        city = update.message.text[11:]
+        city = update.message.text[11:].lower()
     if city in URLS.keys():
         chat_id = update.message.chat_id
         job_already_present = False
@@ -330,7 +339,16 @@ def subscribe_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, cit
         else:
             context = {'chat_id': chat_id, 'city': city}
             job = job_queue.run_repeating(callback=job_notify_subscriber, interval=15, first=1, context=context)
-            chat_data['job'] = job
+            try:
+                chat_data['job'] = job
+            except Unauthorized:
+                logging.warning('{} unauthorized in job notify. removing job'.format(datetime.datetime.now()))
+                try:
+                    del filters[chat_id]
+                    del already_had[chat_id]
+                except Exception:
+                    pass
+                job.schedule_removal()
             update.message.reply_text(
                 'Erfolgreich {} abboniert, jetzt heißt es warten auf die neue Bude.\n'
                 'Zieh die Mietpreisbremse in deinem Kopf und erhalte keine Anzeigen mehr, die du dir eh nicht '
@@ -353,24 +371,32 @@ def subscribe_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, cit
 
 def unsubscribe(bot: Bot, update: Update, chat_data):
     global already_had
-    if 'job' not in chat_data:
-        update.message.reply_text(
-            'Du hast kein aktives Abo, das ich beenden könnte. Erhalte Benachrichtigungen mit /subscribe '
-            '_Stadtkürzel_. Verfügbare Städte: BER, HH, FFM, MUC, Koeln, Stuggi.',
-            parse_mode=ParseMode.MARKDOWN
-        )
-    else:
-        job = chat_data['job']
-        job.schedule_removal()
-        del chat_data['job']
-        update.message.reply_text(
-            'Abo erfolgreich beendet - Du hast deine TraumWG hoffentlich gefunden. Wenn ich dir dabei geholfen habe, '
-            'dann schreib mir an wg-ges-bot@web.de. Ich würde mich freuen. Wenn du mir aus '
-            'Freude darüber sogar eine Spezi ausgeben möchtest, dann schreib mir gerne auch :)\n'
-            'Um erneut per /subscribe zu abonnieren musst du einige Sekunden warten.'
-        )
-        del filters[update.message.chat_id]
-        del already_had[update.message.chat_id]
+    try:
+        if 'job' not in chat_data:
+            update.message.reply_text(
+                'Du hast kein aktives Abo, das ich beenden könnte. Erhalte Benachrichtigungen mit /subscribe '
+                '_Stadtkürzel_. Verfügbare Städte: BER, HH, FFM, MUC, Koeln, Stuggi.',
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            job = chat_data['job']
+            job.schedule_removal()
+            del chat_data['job']
+            update.message.reply_text(
+                'Abo erfolgreich beendet - Du hast deine TraumWG hoffentlich gefunden. Wenn ich dir dabei geholfen habe'
+                ', dann schreib mir an wg-ges-bot@web.de. Ich würde mich freuen. Wenn du mir aus '
+                'Freude darüber sogar eine Spezi ausgeben möchtest, dann schreib mir gerne auch :)\n'
+                'Um erneut per /subscribe zu abonnieren musst du einige Sekunden warten.'
+            )
+            del filters[update.message.chat_id]
+            del already_had[update.message.chat_id]
+    except Unauthorized:
+        logging.warning('{} unauthorized in unsubscribe'.format(datetime.datetime.now()))
+        try:
+            del filters[update.message.chat_id]
+            del already_had[update.message.chat_id]
+        except Exception:
+            pass
 
 
 def filter_rent(bot: Bot, update: Update):
