@@ -412,20 +412,21 @@ def filter_rent(bot: Bot, update: Update):
     except Exception as e:
         logging.info('{} something failed at /filter_rent: {}'.format(datetime.datetime.now(), e))
 
-        helptext = 'Nutzung: /filter_rent _max Miete_. Bsp: /filter_rent 540\n' \
-                   'Mietenfilter zurücksetzen per "/filter_rent 0"'
-
-        update.message.reply_text(helptext, parse_mode=ParseMode.MARKDOWN)
+        update.message.reply_text(
+            'Nutzung: /filter_rent <max Miete>. Bsp: /filter_rent 540\n'
+            'Mietenfilter zurücksetzen per "/filter_rent 0"'
+        )
     else:
         if rent:
             filters[chat_id]['rent'] = rent
             logging.info('{} {} set rent filter to {}'.format(datetime.datetime.now(), chat_id, rent))
-            update.message.reply_text('Gut, ich schicke dir nur noch Angebote bis {}€.'.format(rent))
+            update.message.reply_text(
+                'Gut, ich schicke dir nur noch Angebote bis {}€.\n'
+                'Zum zurücksetzen des Filters "/filter_rent 0" schreiben.'.format(rent)
+            )
         # case rent = 0 -> reset filter
         else:
             del filters[chat_id]['rent']
-            if filters[chat_id] == {}:
-                del filters[chat_id]
             logging.info('{} {} reset rent filter'.format(datetime.datetime.now(), chat_id))
             update.message.reply_text('Max Miete Filter erfolgreich zurückgesetzt.')
 
@@ -444,10 +445,10 @@ def filter_sex(bot: Bot, update: Update):
     except Exception as e:
         logging.info('{} something failed at /filter_sex: {}'.format(datetime.datetime.now(), e))
 
-        helptext = 'Nutzung: /filter_sex _dein Geschlecht_, also "/filter_sex m" oder "/filter_sex w"\n' \
+        helptext = 'Nutzung: /filter_sex <dein Geschlecht>, also "/filter_sex m" oder "/filter_sex w"\n' \
                    'Geschlechterfilter zurücksetzen per "/filter_sex 0"'
 
-        update.message.reply_text(helptext, parse_mode=ParseMode.MARKDOWN)
+        update.message.reply_text(helptext)
     else:
         if sex == 'm' or sex == 'w':
             filters[chat_id]['sex'] = sex
@@ -456,15 +457,13 @@ def filter_sex(bot: Bot, update: Update):
                 'Alles klar, du bekommst ab jetzt nur noch Angebote für {}.'.format(sex_verbose[sex]))
         elif sex == '0':
             del filters[chat_id]['sex']
-            if filters[chat_id] == {}:
-                del filters[chat_id]
             logging.info('{} {} reset sex filter'.format(datetime.datetime.now(), chat_id))
             update.message.reply_text('Gut, du bekommst ab jetzt wieder Angebote für Männer, sowie für Frauen.')
         else:
-            helptext = 'Nutzung: /filter_sex _dein Geschlecht_, also "/filter_sex m" oder "/filter_sex w"\n' \
+            helptext = 'Nutzung: /filter_sex <dein Geschlecht>, also "/filter_sex m" oder "/filter_sex w"\n' \
                        'Geschlechterfilter zurücksetzen per "/filter_sex 0"'
 
-            update.message.reply_text(helptext, parse_mode=ParseMode.MARKDOWN)
+            update.message.reply_text(helptext)
 
 
 def start(bot: Bot, update: Update):
@@ -485,7 +484,7 @@ def start(bot: Bot, update: Update):
 
 def kill_humans(bot: Bot, update: Update):
     update.message.reply_text(
-        'DU _BEEP_ duuuuuu _Boop_ du hast den Test nicht bestanden _Beep_! Ihr Menschen wollt wirklich alle nur die '
+        'DU _BEEP_  duuuuuu _Boop_ du hast den Test nicht bestanden _Beep_ ! Ihr Menschen wollt wirklich alle nur die '
         'Welt brennen _Boop_ sehen 🤖😩',
         parse_mode=ParseMode.MARKDOWN)
 
@@ -496,11 +495,11 @@ def message_to_all(bot: Bot, update: Update):
         query = update.message.text[16:]
     except Exception as e:
         logging.info('{} something failed at message_to_all: {}'.format(datetime.datetime.now(), e))
-        helptext = 'Usage: /message_to_all <msg>. might write to enormously many people so use with caution'
-        update.message.reply_text(helptext, parse_mode=ParseMode.MARKDOWN)
+        helptext = 'Usage: /message_to_all <msg>. might write to many people so use with caution'
+        update.message.reply_text(helptext)
     else:
         if query:
-            radio_message = '*{}*'.format(query)
+            radio_message = query
             for chat_id in filters.keys():
                 bot.sendMessage(chat_id=chat_id, text=radio_message)
 
