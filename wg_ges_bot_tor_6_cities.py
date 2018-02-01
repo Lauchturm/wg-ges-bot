@@ -13,7 +13,7 @@ from random import uniform
 from fake_useragent import UserAgent
 import json
 
-# import some secrets from file not in git repo
+# import some secret params from other file
 import params
 
 URLS = {
@@ -100,16 +100,12 @@ def fill_initially_seen(city: str, listings):
     for listing in listings_rev:
         link_elem = listing.find_all('a', class_='detailansicht')
         link = 'https://www.wg-gesucht.de/{}'.format(link_elem[0].get_attribute_list('href')[0])
-        if link in current_offers[city].keys():
-            pass
-        else:
-            # logging.info('{} - initial filling to current_offers[{}]: {}'.format(datetime.datetime.now(), city, link))
+        if link not in current_offers[city].keys():
             current_offers[city][link] = 'defaultinfo first page. You should never see this. Please tell ' \
                                          'wg-ges-bot@web.de what you did to get to see this, thanks.'
 
 
 def check_filters(chat_id, info) -> bool:
-    global filters
     filters_accept = True
     # maxrentfilter /filter_rent <max value>
     if 'rent' in filters[chat_id].keys():
@@ -203,22 +199,15 @@ def job_scrape_city(bot: Bot, job: Job):
                             and ('listAdPos' not in listing.parent.get_attribute_list('id')[0]):
                         listings.append(listing)
 
-                new_offers = {}
                 if len(listings) == 0:
                     logging.warning('len listings == 0')
                 else:
                     # for first run ignore present page to just notify on newer offers
-                    if current_offers[city] == {}:
+                    if len(current_offers[city]) == 0:
                         fill_initially_seen(city, listings)
-                    new_offers = get_infos_from_listings(listings, city)
-
-                # logging.log(logging.WARN, '{} new offers:'.format(datetime.datetime.now()))
-                # logging.log(logging.WARN, new_offers)
-                if new_offers:
-                    current_offers[city] = new_offers
-
-                    # logging.warning(
-                    #     '{} len of current_offers[{}]: {}'.format(datetime.datetime.now(), city, len(current_offers[city])))
+                    else:
+                        new_offers = get_infos_from_listings(listings, city)
+                        current_offers[city] = new_offers
         except Exception as e:
             logging.warning('error in job_scrape_city2 {}'.format(e))
 
@@ -230,29 +219,31 @@ def job_notify_subscriber(bot: Bot, job: Job):
     try:
         city = job.context['city']
         # for initial run populate already_had[chat_id] with the present page to know "old" offers
-        # "if not already_had[chat_id]" does NOT WORK (because of defaultdict?)
-        if already_had[chat_id] == []:
-            already_had[chat_id] = [link for link in current_offers[city].keys()]
-            return
+        if len(already_had[chat_id]) == 0:
+            if len(current_offers[city]) > 0:
+                already_had[chat_id] = [link for link in current_offers[city].keys()]
+            else:
+                logging.warning('{} tried to initially fill already_had for {} but current_offers were empty'.format(chat_id, city))
+        else:
+            new_already_had = []
+            for link_to_offer, info in current_offers[city].items():
+                if link_to_offer not in already_had[chat_id]:
+                    filters_accept = check_filters(chat_id, info)
+                    if filters_accept:
+                        # offer_id = link_to_offer.split('.')[-2]
+                        # message_to_link = 'https://www.wg-gesucht.de/nachricht-senden.html?id={}'.format(offer_id)
+                        info_string = '{}\n{} - {}€\n{}\n{}\n{}'.format(
+                            info['title'],
+                            info['size'],
+                            info['rent'],
+                            info['wg_details'],
+                            info['availability'],
+                            info['searching_for'],
+                        )
+                        bot.sendMessage(chat_id=chat_id, text='\n'.join((info_string, link_to_offer)))
+                new_already_had.append(link_to_offer)
+            already_had[chat_id] = new_already_had
 
-        new_already_had = []
-        for link_to_offer, info in current_offers[city].items():
-            if link_to_offer not in already_had[chat_id]:
-                filters_accept = check_filters(chat_id, info)
-                if filters_accept:
-                    # offer_id = link_to_offer.split('.')[-2]
-                    # message_to_link = 'https://www.wg-gesucht.de/nachricht-senden.html?id={}'.format(offer_id)
-                    info_string = '{}\n{} - {}€\n{}\n{}\n{}'.format(
-                        info['title'],
-                        info['size'],
-                        info['rent'],
-                        info['wg_details'],
-                        info['availability'],
-                        info['searching_for'],
-                    )
-                    bot.sendMessage(chat_id=chat_id, text='\n'.join((info_string, link_to_offer)))
-            new_already_had.append(link_to_offer)
-        already_had[chat_id] = new_already_had
     except Unauthorized:
         logging.warning('unauthorized in job notify. removing job')
         active_subs.remove(chat_id)
@@ -272,11 +263,8 @@ def scrape_begin_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, 
     if city in URLS.keys():
         job_already_present = False
         for other_job in job_queue.jobs():
-            try:
-                if other_job.context == city:
-                    job_already_present = True
-            except Exception as e:
-                logging.error('{} error in scrape_begin_city: {}'.format(datetime.datetime.now(), e))
+            if other_job.context == city:
+                job_already_present = True
         if job_already_present:
             update.message.reply_text(
                 'wg_ges scraper job was already set! /scrape_stop_{} to kill it'.format(city))
@@ -385,7 +373,7 @@ def unsubscribe(bot: Bot, update: Update, chat_data):
             update.message.reply_text(
                 'Abo erfolgreich beendet - Du hast deine TraumWG hoffentlich gefunden. Wenn ich dir dabei geholfen habe'
                 ', dann schreib mir an wg-ges-bot@web.de. Ich würde mich freuen. Wenn du mir aus '
-                'Freude darüber sogar eine Spezi ausgeben möchtest, dann schreib mir gerne auch :)\n'
+                'Freude darüber sogar eine Spezi (nur Paulaner!) ausgeben möchtest, dann schreib mir gerne auch :)\n'
                 'Um erneut per /subscribe zu abonnieren musst du einige Sekunden warten.'
             )
     except Unauthorized:
@@ -445,7 +433,9 @@ def filter_sex(bot: Bot, update: Update):
             filters[chat_id]['sex'] = sex
             logging.info('{} set sex filter to {}'.format(chat_id, sex))
             update.message.reply_text(
-                'Alles klar, du bekommst ab jetzt nur noch Angebote für {}.'.format(sex_verbose[sex]))
+                'Alles klar, du bekommst ab jetzt nur noch Angebote für {}.\n'
+                'Zum zurücksetzen des Filters "/filter_sex 0" schreiben.'.format(sex_verbose[sex])
+            )
         elif sex == '0':
             del filters[chat_id]['sex']
             logging.info('{} reset sex filter'.format(chat_id))
@@ -500,24 +490,35 @@ def how_many_users(bot: Bot, update: Update):
 
 
 def already_had_cmd(bot: Bot, update: Update):
-    # global already_had
-    # global admin_chat_id
-    # update.message.reply_text('\n'.join(already_had[admin_chat_id]))
-    update.message.reply_text(json.dumps(already_had[admin_chat_id], indent=2))
+    offerlist = [link for link in already_had[admin_chat_id]]
+    if len(offerlist) == 0:
+        update.message.reply_text('empty alreadyhadlist')
+    else:
+        offers = '\n'.join(offerlist)
+        # telegram restricts messages to 4k utf8 symbols
+        if len(offers) > 4000:
+            update.message.reply_text(offers[:4000])
+            update.message.reply_text(offers[4000:])
+        else:
+            update.message.reply_text(offers)
 
 
 def admin_filters_cmd(bot: Bot, update: Update):
-    update.message.reply_text(json.dumps(filters[admin_chat_id], indent=2))
+    update.message.reply_text(json.dumps(filters[admin_chat_id], indent=4))
 
 
 def current_offers_cmd(bot: Bot, update: Update):
-    # global current_offers
-    # global admin_chat_id
-    offerlist = [link for link in current_offers['MUC'].keys()]
+    offerlist = [link for link in current_offers['muc'].keys()]
     if len(offerlist) == 0:
         update.message.reply_text('empty offerlist')
     else:
-        update.message.reply_text('\n'.join(offerlist))
+        offers = '\n'.join(offerlist)
+        # telegram restricts messages to 4k utf8 symbols
+        if len(offers) > 4000:
+            update.message.reply_text(offers[:4000])
+            update.message.reply_text(offers[4000:])
+        else:
+            update.message.reply_text(offers)
 
 
 if __name__ == '__main__':
