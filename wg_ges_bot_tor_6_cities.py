@@ -10,7 +10,6 @@ from threading import Lock
 from torrequest import TorRequest
 from bs4 import BeautifulSoup
 from random import uniform
-# from typing import List
 from fake_useragent import UserAgent
 import json
 
@@ -29,6 +28,9 @@ TIME_BETWEEN_REQUESTS = 9.5
 max_consecutive_tor_reqs = 2000
 consecutive_tor_reqs = 0
 torip = None
+
+# active subscribers' IDs in case the bot needs to message them
+active_subs = []
 
 # filters of each and every person - layout: {chat_id: {filter_type: value} }
 filters = defaultdict(dict)
@@ -62,7 +64,6 @@ def tor_request(url: str):
         'Upgrade-Insecure_Requests:': '1',
         'User-Agent': ua.random,
     }
-    # logging.info('{} user agent: {}'.format(datetime.datetime.now(), headers['User-Agent']))
     with TorRequest(proxy_port=9050, ctrl_port=9051, password=params.tor_pwd) as tr:
         with lock:
             time.sleep(uniform(TIME_BETWEEN_REQUESTS, TIME_BETWEEN_REQUESTS + 2))
@@ -223,11 +224,10 @@ def job_scrape_city(bot: Bot, job: Job):
 
 
 def job_notify_subscriber(bot: Bot, job: Job):
+    global active_subs
+    global already_had
+    chat_id = job.context['chat_id']
     try:
-        global current_offers
-        global already_had
-
-        chat_id = job.context['chat_id']
         city = job.context['city']
         # for initial run populate already_had[chat_id] with the present page to know "old" offers
         # "if not already_had[chat_id]" does NOT WORK (because of defaultdict?)
@@ -254,14 +254,8 @@ def job_notify_subscriber(bot: Bot, job: Job):
             new_already_had.append(link_to_offer)
         already_had[chat_id] = new_already_had
     except Unauthorized:
-        logging.warning('{} unauthorized in job notify. removing job'.format(datetime.datetime.now()))
-        try:
-            # del filters[chat_id]
-            # del already_had[chat_id]
-            filters[chat_id] = {}
-            already_had[chat_id] = []
-        except Exception:
-            pass
+        logging.warning('unauthorized in job notify. removing job')
+        active_subs.remove(chat_id)
         job.schedule_removal()
 
 
@@ -321,6 +315,8 @@ def scrape_stop_city(bot: Bot, update: Update, chat_data, city=None):
 
 
 def subscribe_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, city=None):
+    global active_subs
+
     if not city:
         city = update.message.text[11:].lower()
     if city in URLS.keys():
@@ -334,7 +330,6 @@ def subscribe_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, cit
                 # most probably ran into "string indices must be integers" here due to the 2 formats of job.context
                 # TODO think of a better job.context format
                 pass
-                # logging.warning('{} somehow in subscribe city failed {}'.format(datetime.datetime.now(), e))
 
         if job_already_present:
             update.message.reply_text('Das Abo lief schon. /unsubscribe für Stille im Postfach oder um die Stadt zu '
@@ -345,15 +340,12 @@ def subscribe_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, cit
             try:
                 chat_data['job'] = job
             except Unauthorized:
-                logging.warning('{} unauthorized in job notify. removing job'.format(datetime.datetime.now()))
-                try:
-                    # del filters[chat_id]
-                    # del already_had[chat_id]
-                    filters[chat_id] = {}
-                    already_had[chat_id] = []
-                except Exception:
-                    pass
+                logging.warning('unauthorized in job notify. removing job')
                 job.schedule_removal()
+                return
+
+            active_subs.append(chat_id)
+            logging.info('{} subbed {}'.format(chat_id, city))
             update.message.reply_text(
                 'Erfolgreich {} abboniert, jetzt heißt es warten auf die neue Bude.\n'
                 'Zieh die Mietpreisbremse in deinem Kopf und erhalte keine Anzeigen mehr, die du dir eh nicht '
@@ -363,7 +355,6 @@ def subscribe_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, cit
                 'Beende Benachrichtigungen mit /unsubscribe. Über Feedback oder Fehler an wg-ges-bot@web.de würde ich '
                 'mich freuen'.format(city)
             )
-            filters[chat_id] = {}
     else:
         if city == '':
             update.message.reply_text('Bitte gib an in welcher Stadt du deine WG suchen möchtest. Verfügbare Städte: '
@@ -375,7 +366,7 @@ def subscribe_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, cit
 
 
 def unsubscribe(bot: Bot, update: Update, chat_data):
-    global already_had
+    global active_subs
     chat_id = update.message.chat_id
     try:
         if 'job' not in chat_data:
@@ -385,14 +376,12 @@ def unsubscribe(bot: Bot, update: Update, chat_data):
                 parse_mode=ParseMode.MARKDOWN
             )
         else:
+            logging.info('{} unsubbed'.format(chat_id))
+            active_subs.remove(chat_id)
             job = chat_data['job']
             job.schedule_removal()
             del chat_data['job']
 
-            # del filters[update.message.chat_id]
-            # del already_had[update.message.chat_id]
-            filters[chat_id] = {}
-            already_had[chat_id] = []
             update.message.reply_text(
                 'Abo erfolgreich beendet - Du hast deine TraumWG hoffentlich gefunden. Wenn ich dir dabei geholfen habe'
                 ', dann schreib mir an wg-ges-bot@web.de. Ich würde mich freuen. Wenn du mir aus '
@@ -400,14 +389,7 @@ def unsubscribe(bot: Bot, update: Update, chat_data):
                 'Um erneut per /subscribe zu abonnieren musst du einige Sekunden warten.'
             )
     except Unauthorized:
-        logging.warning('{} unauthorized in unsubscribe'.format(datetime.datetime.now()))
-        try:
-            # del filters[update.message.chat_id]
-            # del already_had[update.message.chat_id]
-            filters[chat_id] = {}
-            already_had[chat_id] = []
-        except Exception:
-            pass
+        logging.warning('{} unauthorized in unsubscribe'.format(chat_id))
 
 
 def filter_rent(bot: Bot, update: Update):
@@ -509,17 +491,12 @@ def message_to_all(bot: Bot, update: Update):
     else:
         if query:
             radio_message = query
-            for chat_id in filters.keys():
+            for chat_id in active_subs:
                 bot.sendMessage(chat_id=chat_id, text=radio_message)
 
 
 def how_many_users(bot: Bot, update: Update):
-    users = 0
-    for user in filters:
-        if user != {}:
-            users += 1
-    update.message.reply_text(users)
-    # update.message.reply_text(len(filters))
+    update.message.reply_text(len(active_subs))
 
 
 def already_had_cmd(bot: Bot, update: Update):
