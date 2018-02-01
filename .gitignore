@@ -7,7 +7,7 @@ test.py
 test2.py
 params.py
 .idea
-sharepoint_tests
+wg_ges_bot_tor_tmp.py
 
 # User-specific stuff:
 .idea/**/workspace.xml

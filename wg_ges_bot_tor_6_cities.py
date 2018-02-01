@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from random import uniform
 # from typing import List
 from fake_useragent import UserAgent
+import json
 
 # import some secrets from file not in git repo
 import params
@@ -72,7 +73,7 @@ def tor_request(url: str):
                 if len(hazip.text) > 30:
                     hazip = tr.get('https://wtfismyip.com/text')
                 ip = hazip.text.replace('\n', '')
-                logging.warning('{} tor req got AGB page at exit node {}'.format(datetime.datetime.now(), ip))
+                logging.warning('tor req got AGB page at exit node {}'.format(ip))
                 tr.reset_identity_async()
                 return None
             else:
@@ -82,9 +83,7 @@ def tor_request(url: str):
                         hazip = tr.get('https://wtfismyip.com/text')
                     torip = hazip.text.replace('\n', '')
                 if consecutive_tor_reqs % 100 == 0:
-                    logging.info(
-                        '{} tor req fine consecutive #{} at {} '.format(datetime.datetime.now(), consecutive_tor_reqs,
-                                                                        torip))
+                    logging.info('tor req fine consecutive #{} at {} '.format(consecutive_tor_reqs, torip))
                 consecutive_tor_reqs += 1
                 if consecutive_tor_reqs >= max_consecutive_tor_reqs:
                     tr.reset_identity_async()
@@ -118,8 +117,7 @@ def check_filters(chat_id, info) -> bool:
             if not filters[chat_id]['rent'] >= offer_rent:
                 filters_accept = False
         except ValueError as e:
-            logging.warning(
-                '{} error while checking filters at parsing rent to int {}'.format(datetime.datetime.now(), e))
+            logging.warning('error while checking filters at parsing rent to int {}'.format(e))
     # sex filter /filter_sex <sex> (m/w)
     if 'sex' in filters[chat_id].keys():
         try:
@@ -131,8 +129,7 @@ def check_filters(chat_id, info) -> bool:
             if not offer_sex_dict[filters[chat_id]['sex']]:
                 filters_accept = False
         except ValueError as e:
-            logging.warning(
-                '{} error while notifying at sexfilter {}'.format(datetime.datetime.now(), e))
+            logging.warning('error while notifying at sexfilter {}'.format(e))
     return filters_accept
 
 
@@ -145,7 +142,7 @@ def get_infos_from_listings(listings: list, city: str) -> dict:
         if link_to_offer in current_offers[city].keys():
             info = current_offers[city][link_to_offer]
         else:
-            logging.info('{} new offer: {}'.format(datetime.datetime.now(), link_to_offer))
+            logging.info('new offer: {}'.format(link_to_offer))
 
             price_wrapper = listing.find(class_="detail-size-price-wrapper")
             link_named_price = price_wrapper.find(class_="detailansicht")
@@ -186,7 +183,7 @@ def job_scrape_city(bot: Bot, job: Job):
     try:
         page = tor_request(url)
     except Exception as e:
-        logging.warning('{} - request at job_scrape_city threw exception: - {}'.format(datetime.datetime.now(), e))
+        logging.warning('request at job_scrape_city threw exception: - {}'.format(e))
     else:
         # might return None due to agb page
         try:
@@ -207,7 +204,7 @@ def job_scrape_city(bot: Bot, job: Job):
 
                 new_offers = {}
                 if len(listings) == 0:
-                    logging.log(logging.ERROR, '{} len listings == 0'.format(datetime.datetime.now()))
+                    logging.warning('len listings == 0')
                 else:
                     # for first run ignore present page to just notify on newer offers
                     if current_offers[city] == {}:
@@ -222,7 +219,7 @@ def job_scrape_city(bot: Bot, job: Job):
                     # logging.warning(
                     #     '{} len of current_offers[{}]: {}'.format(datetime.datetime.now(), city, len(current_offers[city])))
         except Exception as e:
-            logging.error('{} error in job_scrape_city2 {}'.format(datetime.datetime.now(), e))
+            logging.warning('error in job_scrape_city2 {}'.format(e))
 
 
 def job_notify_subscriber(bot: Bot, job: Job):
@@ -259,14 +256,17 @@ def job_notify_subscriber(bot: Bot, job: Job):
     except Unauthorized:
         logging.warning('{} unauthorized in job notify. removing job'.format(datetime.datetime.now()))
         try:
-            del filters[chat_id]
-            del already_had[chat_id]
+            # del filters[chat_id]
+            # del already_had[chat_id]
+            filters[chat_id] = {}
+            already_had[chat_id] = []
         except Exception:
             pass
         job.schedule_removal()
 
 
 def scrape_begin_all(bot: Bot, update: Update, job_queue: JobQueue, chat_data):
+    logging.info('start scraping all')
     for city in URLS.keys():
         scrape_begin_city(bot, update, job_queue, chat_data, city)
         time.sleep(12)
@@ -289,6 +289,7 @@ def scrape_begin_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, 
         else:
             job = job_queue.run_repeating(callback=job_scrape_city, interval=75, first=10, context=city)
             chat_data[city] = job
+            logging.info('start scraping {}'.format(city))
             update.message.reply_text(
                 'wg_ges scraper job successfully set! /subscribe {} to test, /unsubscribe to stop, /scrape_stop_city '
                 '{} to stop it.'.format(city, city))
@@ -346,8 +347,10 @@ def subscribe_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, cit
             except Unauthorized:
                 logging.warning('{} unauthorized in job notify. removing job'.format(datetime.datetime.now()))
                 try:
-                    del filters[chat_id]
-                    del already_had[chat_id]
+                    # del filters[chat_id]
+                    # del already_had[chat_id]
+                    filters[chat_id] = {}
+                    already_had[chat_id] = []
                 except Exception:
                     pass
                 job.schedule_removal()
@@ -373,6 +376,7 @@ def subscribe_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, cit
 
 def unsubscribe(bot: Bot, update: Update, chat_data):
     global already_had
+    chat_id = update.message.chat_id
     try:
         if 'job' not in chat_data:
             update.message.reply_text(
@@ -384,19 +388,24 @@ def unsubscribe(bot: Bot, update: Update, chat_data):
             job = chat_data['job']
             job.schedule_removal()
             del chat_data['job']
+
+            # del filters[update.message.chat_id]
+            # del already_had[update.message.chat_id]
+            filters[chat_id] = {}
+            already_had[chat_id] = []
             update.message.reply_text(
                 'Abo erfolgreich beendet - Du hast deine TraumWG hoffentlich gefunden. Wenn ich dir dabei geholfen habe'
                 ', dann schreib mir an wg-ges-bot@web.de. Ich würde mich freuen. Wenn du mir aus '
                 'Freude darüber sogar eine Spezi ausgeben möchtest, dann schreib mir gerne auch :)\n'
                 'Um erneut per /subscribe zu abonnieren musst du einige Sekunden warten.'
             )
-            del filters[update.message.chat_id]
-            del already_had[update.message.chat_id]
     except Unauthorized:
         logging.warning('{} unauthorized in unsubscribe'.format(datetime.datetime.now()))
         try:
-            del filters[update.message.chat_id]
-            del already_had[update.message.chat_id]
+            # del filters[update.message.chat_id]
+            # del already_had[update.message.chat_id]
+            filters[chat_id] = {}
+            already_had[chat_id] = []
         except Exception:
             pass
 
@@ -410,7 +419,7 @@ def filter_rent(bot: Bot, update: Update):
         query = update.message.text[13:].replace('€', '')
         rent = int(query)
     except Exception as e:
-        logging.info('{} something failed at /filter_rent: {}'.format(datetime.datetime.now(), e))
+        logging.info('something failed at /filter_rent: {}'.format(e))
 
         update.message.reply_text(
             'Nutzung: /filter_rent <max Miete>. Bsp: /filter_rent 540\n'
@@ -419,7 +428,7 @@ def filter_rent(bot: Bot, update: Update):
     else:
         if rent:
             filters[chat_id]['rent'] = rent
-            logging.info('{} {} set rent filter to {}'.format(datetime.datetime.now(), chat_id, rent))
+            logging.info('{} set rent filter to {}'.format(chat_id, rent))
             update.message.reply_text(
                 'Gut, ich schicke dir nur noch Angebote bis {}€.\n'
                 'Zum zurücksetzen des Filters "/filter_rent 0" schreiben.'.format(rent)
@@ -427,7 +436,7 @@ def filter_rent(bot: Bot, update: Update):
         # case rent = 0 -> reset filter
         else:
             del filters[chat_id]['rent']
-            logging.info('{} {} reset rent filter'.format(datetime.datetime.now(), chat_id))
+            logging.info('{} reset rent filter'.format(chat_id))
             update.message.reply_text('Max Miete Filter erfolgreich zurückgesetzt.')
 
 
@@ -443,7 +452,7 @@ def filter_sex(bot: Bot, update: Update):
     try:
         sex = update.message.text[12:].lower()
     except Exception as e:
-        logging.info('{} something failed at /filter_sex: {}'.format(datetime.datetime.now(), e))
+        logging.info('something failed at /filter_sex: {}'.format(e))
 
         helptext = 'Nutzung: /filter_sex <dein Geschlecht>, also "/filter_sex m" oder "/filter_sex w"\n' \
                    'Geschlechterfilter zurücksetzen per "/filter_sex 0"'
@@ -452,12 +461,12 @@ def filter_sex(bot: Bot, update: Update):
     else:
         if sex == 'm' or sex == 'w':
             filters[chat_id]['sex'] = sex
-            logging.info('{} {} set sex filter to {}'.format(datetime.datetime.now(), chat_id, sex))
+            logging.info('{} set sex filter to {}'.format(chat_id, sex))
             update.message.reply_text(
                 'Alles klar, du bekommst ab jetzt nur noch Angebote für {}.'.format(sex_verbose[sex]))
         elif sex == '0':
             del filters[chat_id]['sex']
-            logging.info('{} {} reset sex filter'.format(datetime.datetime.now(), chat_id))
+            logging.info('{} reset sex filter'.format(chat_id))
             update.message.reply_text('Gut, du bekommst ab jetzt wieder Angebote für Männer, sowie für Frauen.')
         else:
             helptext = 'Nutzung: /filter_sex <dein Geschlecht>, also "/filter_sex m" oder "/filter_sex w"\n' \
@@ -494,7 +503,7 @@ def message_to_all(bot: Bot, update: Update):
     try:
         query = update.message.text[16:]
     except Exception as e:
-        logging.info('{} something failed at message_to_all: {}'.format(datetime.datetime.now(), e))
+        logging.info('something failed at message_to_all: {}'.format(e))
         helptext = 'Usage: /message_to_all <msg>. might write to many people so use with caution'
         update.message.reply_text(helptext)
     else:
@@ -505,18 +514,28 @@ def message_to_all(bot: Bot, update: Update):
 
 
 def how_many_users(bot: Bot, update: Update):
-    update.message.reply_text(len(filters))
+    users = 0
+    for user in filters:
+        if user != {}:
+            users += 1
+    update.message.reply_text(users)
+    # update.message.reply_text(len(filters))
 
 
 def already_had_cmd(bot: Bot, update: Update):
-    global already_had
-    global admin_chat_id
-    update.message.reply_text('\n'.join(already_had[admin_chat_id]))
+    # global already_had
+    # global admin_chat_id
+    # update.message.reply_text('\n'.join(already_had[admin_chat_id]))
+    update.message.reply_text(json.dumps(already_had[admin_chat_id], indent=2))
+
+
+def admin_filters_cmd(bot: Bot, update: Update):
+    update.message.reply_text(json.dumps(filters[admin_chat_id], indent=2))
 
 
 def current_offers_cmd(bot: Bot, update: Update):
-    global current_offers
-    global admin_chat_id
+    # global current_offers
+    # global admin_chat_id
     offerlist = [link for link in current_offers['MUC'].keys()]
     if len(offerlist) == 0:
         update.message.reply_text('empty offerlist')
@@ -535,8 +554,8 @@ if __name__ == '__main__':
     stemlogger.isEnabledFor(logging.FATAL)
     stemlogger.isEnabledFor(logging.ERROR)
 
-    logging.basicConfig(filename='wg_ges_bot_tor.log', level=logging.INFO)
-    logging.info(datetime.datetime.now())
+    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', filename='wg_ges_bot_tor.log', level=logging.INFO)
+    logging.info('starting bot')
 
     updater = Updater(token=params.token)
 
@@ -569,6 +588,7 @@ if __name__ == '__main__':
         CommandHandler('how_many', how_many_users, filters=Filters.user(admin_chat_id)),
         CommandHandler('already_had', already_had_cmd, filters=Filters.user(admin_chat_id)),
         CommandHandler('current_offers', current_offers_cmd, filters=Filters.user(admin_chat_id)),
+        CommandHandler('admin_filters', admin_filters_cmd, filters=Filters.user(admin_chat_id)),
         CommandHandler('kill_humans', kill_humans)
     ]
 
