@@ -50,13 +50,23 @@ lock = Lock()
 
 class Ad:
     datetime_format = '%d.%m.%Y'
-    def __init__(self, title, size, rent, genders, availability, wg_details):
+    def __init__(self, url, title, size, rent, genders, availability, wg_details):
+        self.url = url
         self.title = title
         self.size = size
         self.rent = rent
         self.genders = genders
         self.wg_details = wg_details
         self.availability = availability
+
+    def __hash__(self):
+        return hash(self.url)
+
+    def __eq__(self, other):
+        """Overrides the default implementation"""
+        if isinstance(self, other.__class__):
+            return self.url == other.url
+        return False
 
     def available_from(self):
         return self.availability[0]
@@ -65,6 +75,7 @@ class Ad:
         return self.availability[1]
 
     def from_dict(info):
+        url = info['url']
         title = info['title']
         size = info['size']
         wg_details = info['wg_details']
@@ -77,7 +88,7 @@ class Ad:
             genders.append('w')
         if '🚹' in info['searching_for']:
             genders.append('m')
-        return Ad(title, size, rent, genders, availability, wg_details)
+        return Ad(url, title, size, rent, genders, availability, wg_details)
 
     def to_chat_message(self):
         gender_mapping = { 'w': '🚺', 'm': '🚹' }
@@ -127,6 +138,7 @@ class Subscriber:
     def __init__(self, chat_id):
         self.chat_id = chat_id
         self.filters = {}
+        self.known_ads = set()
 
     def add_filter(self, filter_class, param):
         self.filters[filter_class] = filter_class(param)
@@ -136,6 +148,12 @@ class Subscriber:
 
     def is_interested_in(self, ad):
         return all(filter.allows(ad) for filter in self.filters.values())
+
+    def already_had(self, ad):
+        return ad in self.known_ads
+
+    def notify(self, ad):
+        self.known_ads.add(ad)
 
 
 def get_current_ip(tr):

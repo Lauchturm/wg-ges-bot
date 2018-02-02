@@ -5,6 +5,7 @@ import pytest
 import datetime
 
 mitbewohnerinFuer21qm = {
+    'url': 'https://www.wg-gesucht.de/wg-zimmer-in-Berlin-Charlottenburg.5761535.html',
     'title': 'Mitbewohnerin für 21 qm² Zimmer + gemeinsames Wohnzimmer + Balkon gesucht :)',
     'size': '21m²',
     'rent': '545',
@@ -14,6 +15,7 @@ mitbewohnerinFuer21qm = {
 }
 
 nettenMenschenDict = {
+    'url': 'https://www.wg-gesucht.de/wg-zimmer-in-Berlin-Charlottenburg-Wilmersdorf.6400226.html',
     'title': 'Schönes helles WG Zimmer frei für netten Menschen! :)',
     'size': '16m²',
     'rent': '350',
@@ -97,3 +99,12 @@ def test_filter_available_2months_ok():
     mySubscriber = Subscriber(4711)
     mySubscriber.add_filter(FilterAvailability, datetime.timedelta(weeks=4))
     assert mySubscriber.is_interested_in(ad)
+
+def test_notify():
+    mySubscriber = Subscriber(4711)
+    ad = Ad.from_dict(nettenMenschenDict)
+    assert mySubscriber.already_had(ad) == False
+    assert len(mySubscriber.known_ads) == 0
+    mySubscriber.notify(ad)
+    assert mySubscriber.already_had(ad)
+    assert len(mySubscriber.known_ads) == 1
