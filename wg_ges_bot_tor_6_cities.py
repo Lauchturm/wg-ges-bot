@@ -47,6 +47,13 @@ admin_chat_id = params.admin_chat_id
 lock = Lock()
 
 
+def get_current_ip(tr):
+    hazip = tr.get('http://icanhazip.com/')
+    if len(hazip.text) > 30:
+        hazip = tr.get('https://wtfismyip.com/text')
+    return hazip.text.replace('\n', '')
+
+
 def tor_request(url: str):
     global consecutive_tor_reqs
     global torip
@@ -70,19 +77,13 @@ def tor_request(url: str):
             page = tr.get(url, headers=headers)
             if 'Nutzungsaktivitäten, die den Zweck haben' in page.text:
                 consecutive_tor_reqs = 0
-                hazip = tr.get('http://icanhazip.com/')
-                if len(hazip.text) > 30:
-                    hazip = tr.get('https://wtfismyip.com/text')
-                ip = hazip.text.replace('\n', '')
+                ip = get_current_ip(tr)
                 logging.warning('tor req got AGB page at exit node {}'.format(ip))
                 tr.reset_identity_async()
                 return None
             else:
                 if consecutive_tor_reqs == 0:
-                    hazip = tr.get('http://icanhazip.com/')
-                    if len(hazip.text) > 30:
-                        hazip = tr.get('https://wtfismyip.com/text')
-                    torip = hazip.text.replace('\n', '')
+                    torip = get_current_ip(tr)
                 if consecutive_tor_reqs % 100 == 0:
                     logging.info('tor req fine consecutive #{} at {} '.format(consecutive_tor_reqs, torip))
                 consecutive_tor_reqs += 1
@@ -260,13 +261,10 @@ def scrape_begin_all(bot: Bot, update: Update, job_queue: JobQueue, chat_data):
 
 def scrape_begin_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, city=None):
     if not city:
-        city = update.message.text[19:].lower()
+        city = update.message.text[19:].lower() # 19 characters is len('/scrape_begin_city ')
     if city in URLS.keys():
-        job_already_present = False
-        for other_job in job_queue.jobs():
-            if other_job.context == city:
-                job_already_present = True
-        if job_already_present:
+        jobs_for_same_city = [job for job in job_queue.jobs() if job.context == city]
+        if jobs_for_same_city:
             update.message.reply_text(
                 'wg_ges scraper job was already set! /scrape_stop_city {} to kill it'.format(city))
         else:
@@ -277,7 +275,7 @@ def scrape_begin_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, 
                 'wg_ges scraper job successfully set! /subscribe {} to test, /unsubscribe to stop, /scrape_stop_city '
                 '{} to stop it.'.format(city, city))
     else:
-        update.message.reply_text('')
+        update.message.reply_text('valid cities: {}'.format(', '.join(URLS.keys())))
 
 
 def scrape_stop_all(bot: Bot, update: Update, chat_data):
