@@ -1,5 +1,5 @@
 import wg_ges_bot_tor_6_cities
-from wg_ges_bot_tor_6_cities import Offer, Subscriber, FilterRent, FilterGender
+from wg_ges_bot_tor_6_cities import Ad, Subscriber, FilterRent, FilterGender
 from collections import defaultdict
 
 mitbewohnerinFuer21qm = {
@@ -33,23 +33,23 @@ def test_remove_filter():
 def test_filter_rent_too_expensive():
     mySubscriber = Subscriber(4711)
     mySubscriber.add_filter(FilterRent, 500)
-    offer = Offer.from_dict(mitbewohnerinFuer21qm)
-    assert mySubscriber.is_interested_in(offer) == False
+    ad = Ad.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.is_interested_in(ad) == False
 
 def test_filter_rent_ok():
     mySubscriber = Subscriber(4711)
     mySubscriber.add_filter(FilterRent, 600)
-    offer = Offer.from_dict(mitbewohnerinFuer21qm)
-    assert mySubscriber.is_interested_in(offer)
+    ad = Ad.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.is_interested_in(ad)
 
 def test_filter_gender_female_only():
     mySubscriber = Subscriber(4711)
     mySubscriber.add_filter(FilterGender, 'm')
-    offer = Offer.from_dict(mitbewohnerinFuer21qm)
-    assert mySubscriber.is_interested_in(offer) == False
+    ad = Ad.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.is_interested_in(ad) == False
 
 def test_filter_gender_ok():
     mySubscriber = Subscriber(4711)
     mySubscriber.add_filter(FilterGender, 'w')
-    offer = Offer.from_dict(mitbewohnerinFuer21qm)
-    assert mySubscriber.is_interested_in(offer)
+    ad = Ad.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.is_interested_in(ad)

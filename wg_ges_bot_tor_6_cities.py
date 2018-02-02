@@ -47,7 +47,7 @@ admin_chat_id = params.admin_chat_id
 lock = Lock()
 
 
-class Offer:
+class Ad:
     def __init__(self, rent, genders):
         self.rent = rent
         self.genders = genders
@@ -58,19 +58,19 @@ class Offer:
         if '🚹' in info['searching_for']:
             genders.append('m')
         rent = int(info['rent'])
-        return Offer(rent, genders)
+        return Ad(rent, genders)
 
 class FilterRent:
     def __init__(self, max):
         self.max = max
-    def allows(self, offer):
-        return offer.rent <= self.max
+    def allows(self, ad):
+        return ad.rent <= self.max
 
 class FilterGender:
     def __init__(self, gender):
         self.gender = gender
-    def allows(self, offer):
-        return self.gender in offer.genders
+    def allows(self, ad):
+        return self.gender in ad.genders
 
 class Subscriber:
     def __init__(self, chat_id):
@@ -83,8 +83,8 @@ class Subscriber:
     def remove_filter(self, filter_class):
         self.filters.pop(filter_class)
 
-    def is_interested_in(self, offer):
-        return all(filter.allows(offer) for filter in self.filters.values())
+    def is_interested_in(self, ad):
+        return all(filter.allows(ad) for filter in self.filters.values())
 
 
 def get_current_ip(tr):
