@@ -68,7 +68,6 @@ def tor_request(url: str):
         'DNT': '1',
         'Host': 'www.wg-gesucht.de',
         'Referrer': 'https://www.wg-gesucht.de/',
-        'Upgrade-Insecure_Requests:': '1',
         'User-Agent': ua.random,
     }
     with TorRequest(proxy_port=9050, ctrl_port=9051, password=params.tor_pwd) as tr:
@@ -582,3 +581,5 @@ if __name__ == '__main__':
 
     # to make killing per ctrl+c possible
     updater.idle()
+
+
