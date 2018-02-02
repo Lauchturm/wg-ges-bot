@@ -47,6 +47,13 @@ admin_chat_id = params.admin_chat_id
 lock = Lock()
 
 
+def get_current_ip(tr):
+    hazip = tr.get('http://icanhazip.com/')
+    if len(hazip.text) > 30:
+        hazip = tr.get('https://wtfismyip.com/text')
+    return hazip.text.replace('\n', '')
+
+
 def tor_request(url: str):
     global consecutive_tor_reqs
     global torip
@@ -70,19 +77,13 @@ def tor_request(url: str):
             page = tr.get(url, headers=headers)
             if 'Nutzungsaktivitäten, die den Zweck haben' in page.text:
                 consecutive_tor_reqs = 0
-                hazip = tr.get('http://icanhazip.com/')
-                if len(hazip.text) > 30:
-                    hazip = tr.get('https://wtfismyip.com/text')
-                ip = hazip.text.replace('\n', '')
+                ip = get_current_ip(tr)
                 logging.warning('tor req got AGB page at exit node {}'.format(ip))
                 tr.reset_identity_async()
                 return None
             else:
                 if consecutive_tor_reqs == 0:
-                    hazip = tr.get('http://icanhazip.com/')
-                    if len(hazip.text) > 30:
-                        hazip = tr.get('https://wtfismyip.com/text')
-                    torip = hazip.text.replace('\n', '')
+                    torip = get_current_ip(tr)
                 if consecutive_tor_reqs % 100 == 0:
                     logging.info('tor req fine consecutive #{} at {} '.format(consecutive_tor_reqs, torip))
                 consecutive_tor_reqs += 1
