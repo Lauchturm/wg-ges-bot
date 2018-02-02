@@ -223,7 +223,8 @@ def job_notify_subscriber(bot: Bot, job: Job):
             if len(current_offers[city]) > 0:
                 already_had[chat_id] = [link for link in current_offers[city].keys()]
             else:
-                logging.warning('{} tried to initially fill already_had for {} but current_offers were empty'.format(chat_id, city))
+                logging.warning(
+                    '{} tried to initially fill already_had for {} but current_offers were empty'.format(chat_id, city))
         else:
             new_already_had = []
             for link_to_offer, info in current_offers[city].items():
@@ -521,6 +522,12 @@ def current_offers_cmd(bot: Bot, update: Update):
             update.message.reply_text(offers)
 
 
+def current_offers_count(bot: Bot, update: Update):
+    offercounts = {city: len(offers) for city, offers in current_offers.items()}
+    print(offercounts)
+    update.message.reply_text(json.dumps(offercounts))
+
+
 if __name__ == '__main__':
     # stemlogger spammed a lot and i failed setting it to only warnings
     stemlogger = stem.util.log.get_logger()
@@ -532,7 +539,8 @@ if __name__ == '__main__':
     stemlogger.isEnabledFor(logging.FATAL)
     stemlogger.isEnabledFor(logging.ERROR)
 
-    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', filename='wg_ges_bot_tor.log', level=logging.INFO)
+    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', filename='wg_ges_bot_tor.log',
+                        level=logging.INFO)
     logging.info('starting bot')
 
     updater = Updater(token=params.token)
@@ -566,6 +574,7 @@ if __name__ == '__main__':
         CommandHandler('how_many', how_many_users, filters=Filters.user(admin_chat_id)),
         CommandHandler('already_had', already_had_cmd, filters=Filters.user(admin_chat_id)),
         CommandHandler('current_offers', current_offers_cmd, filters=Filters.user(admin_chat_id)),
+        CommandHandler('current_count', current_offers_count, filters=Filters.user(admin_chat_id)),
         CommandHandler('admin_filters', admin_filters_cmd, filters=Filters.user(admin_chat_id)),
         CommandHandler('kill_humans', kill_humans)
     ]
