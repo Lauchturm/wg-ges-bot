@@ -528,6 +528,11 @@ def current_offers_count(bot: Bot, update: Update):
     update.message.reply_text(json.dumps(offercounts))
 
 
+def error(bot: Bot, update: Update, error):
+    """Log Errors caused by Updates."""
+    logging.warning('Update "%s" caused error "%s"', update, error)
+
+
 if __name__ == '__main__':
     # stemlogger spammed a lot and i failed setting it to only warnings
     stemlogger = stem.util.log.get_logger()
@@ -582,6 +587,9 @@ if __name__ == '__main__':
     # handlers need to be added to the dispatcher in order to work
     for handler in handlers:
         dispatcher.add_handler(handler)
+
+    # errorhandler logging dispatcher errors
+    dispatcher.add_error_handler(error)
 
     # starts bot
     # fetches these https://api.telegram.org/bot<TOKEN>/getUpdates and feeds them to the handlers
