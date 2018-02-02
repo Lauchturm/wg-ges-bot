@@ -48,10 +48,17 @@ lock = Lock()
 
 
 class Offer:
-    def __init__(self, rent):
-        self.rent = int(rent)
-    def from_dict(adict):
-        return Offer(adict['rent'])
+    def __init__(self, rent, genders):
+        self.rent = rent
+        self.genders = genders
+    def from_dict(info):
+        genders = []
+        if '🚺' in info['searching_for']:
+            genders.append('w')
+        if '🚹' in info['searching_for']:
+            genders.append('m')
+        rent = int(info['rent'])
+        return Offer(rent, genders)
 
 class FilterRent:
     def __init__(self, max):
@@ -59,13 +66,19 @@ class FilterRent:
     def allows(self, offer):
         return offer.rent <= self.max
 
+class FilterGender:
+    def __init__(self, gender):
+        self.gender = gender
+    def allows(self, offer):
+        return self.gender in offer.genders
+
 class Subscriber:
     def __init__(self, chat_id):
         self.chat_id = chat_id
         self.filters = {}
 
-    def add_filter(self, filter_class, params):
-        self.filters[filter_class] = filter_class(params)
+    def add_filter(self, filter_class, param):
+        self.filters[filter_class] = filter_class(param)
 
     def remove_filter(self, filter_class):
         self.filters.pop(filter_class)

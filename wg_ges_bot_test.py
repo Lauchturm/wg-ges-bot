@@ -1,5 +1,5 @@
 import wg_ges_bot_tor_6_cities
-from wg_ges_bot_tor_6_cities import Offer, Subscriber, FilterRent
+from wg_ges_bot_tor_6_cities import Offer, Subscriber, FilterRent, FilterGender
 from collections import defaultdict
 
 mitbewohnerinFuer21qm = {
@@ -30,7 +30,6 @@ def test_remove_filter():
     mySubscriber.remove_filter(FilterRent)
     assert len(mySubscriber.filters) == 0
 
-
 def test_filter_rent_too_expensive():
     mySubscriber = Subscriber(4711)
     mySubscriber.add_filter(FilterRent, 500)
@@ -41,5 +40,16 @@ def test_filter_rent_ok():
     mySubscriber = Subscriber(4711)
     mySubscriber.add_filter(FilterRent, 600)
     offer = Offer.from_dict(mitbewohnerinFuer21qm)
-    assert mySubscriber.is_interested_in(offer) == True
+    assert mySubscriber.is_interested_in(offer)
 
+def test_filter_gender_female_only():
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterGender, 'm')
+    offer = Offer.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.is_interested_in(offer) == False
+
+def test_filter_gender_ok():
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterGender, 'w')
+    offer = Offer.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.is_interested_in(offer)
