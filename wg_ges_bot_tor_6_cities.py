@@ -506,17 +506,21 @@ def admin_filters_cmd(bot: Bot, update: Update):
 
 
 def current_offers_cmd(bot: Bot, update: Update):
-    offerlist = [link for link in current_offers['muc'].keys()]
-    if len(offerlist) == 0:
-        update.message.reply_text('empty offerlist')
-    else:
-        offers = '\n'.join(offerlist)
-        # telegram restricts messages to 4k utf8 symbols
-        if len(offers) > 4000:
-            update.message.reply_text(offers[:4000])
-            update.message.reply_text(offers[4000:])
+    if not current_offers:
+        update.message.reply_text('No offers for any city')
+    for city, offers in current_offers.items():
+        update.message.reply_text('Offers for city \'{}\':'.format(city))
+        offerlist = [link for link in offers.keys()]
+        if len(offerlist) == 0:
+            update.message.reply_text('Empty offerlist')
         else:
-            update.message.reply_text(offers)
+            offers = '\n'.join(offerlist)
+            # telegram restricts messages to 4k utf8 symbols
+            if len(offers) > 4000:
+                update.message.reply_text(offers[:4000])
+                update.message.reply_text(offers[4000:])
+            else:
+                update.message.reply_text(offers)
 
 
 if __name__ == '__main__':
