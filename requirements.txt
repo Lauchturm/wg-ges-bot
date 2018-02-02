@@ -1,3 +1,4 @@
+attrs==17.4.0
 beautifulsoup4==4.6.0
 bs4==0.0.1
 certifi==2018.1.18
@@ -5,9 +6,13 @@ chardet==3.0.4
 fake-useragent==0.1.8
 future==0.16.0
 idna==2.6
+pluggy==0.6.0
+py==1.5.2
 PySocks==1.6.8
+pytest==3.4.0
 python-telegram-bot==9.0.0
 requests==2.18.4
+six==1.11.0
 stem==1.6.0
 torrequest==0.1.0
 urllib3==1.22
