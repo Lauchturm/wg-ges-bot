@@ -11,6 +11,9 @@ mitbewohnerinFuer21qm = {
     'searching_for': '🚺 gesucht'
 }
 
+nettenMenschenDict = {'title': 'Schönes helles WG Zimmer frei für netten Menschen! :)', 'size': '16m²', 'rent': '350', 'availability': 'Verfügbar: 01.03.2018 - 31.03.2018', 'wg_details': '2er WG (1w,0m) in Berlin Charlottenburg-Wilmersdorf, Quellweg', 'searching_for': '🚺 gesucht'}
+nettenMenschenString = 'Schönes helles WG Zimmer frei für netten Menschen! :)\n16m² - 350€\n2er WG (1w,0m) in Berlin Charlottenburg-Wilmersdorf, Quellweg\nVerfügbar: 01.03.2018 - 31.03.2018\n🚺 gesucht'
+
 def test_empty_filters():
     wg_ges_bot_tor_6_cities.filters = defaultdict(dict)
     assert wg_ges_bot_tor_6_cities.check_filters(4711, mitbewohnerinFuer21qm) == True
