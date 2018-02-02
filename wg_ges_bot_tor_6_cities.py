@@ -48,17 +48,36 @@ lock = Lock()
 
 
 class Ad:
-    def __init__(self, rent, genders):
+    def __init__(self, title, size, rent, genders, availability, wg_details):
+        self.title = title
+        self.size = size
         self.rent = rent
         self.genders = genders
+        self.availability = availability
+        self.wg_details = wg_details
     def from_dict(info):
+        title = info['title']
+        size = info['size']
+        wg_details = info['wg_details']
+        availability = info['availability']
+        rent = int(info['rent'])
         genders = []
         if '🚺' in info['searching_for']:
             genders.append('w')
         if '🚹' in info['searching_for']:
             genders.append('m')
-        rent = int(info['rent'])
-        return Ad(rent, genders)
+        return Ad(title, size, rent, genders, availability, wg_details)
+
+    def to_chat_message(self):
+        gender_mapping = { 'w': '🚺', 'm': '🚹' }
+        return '{}\n{} - {}€\n{}\n{}\n{}'.format(
+            self.title,
+            self.size,
+            self.rent,
+            self.wg_details,
+            self.availability,
+            ' oder '.join(map(lambda g: gender_mapping[g], self.genders)) + ' gesucht'
+        )
 
 class FilterRent:
     def __init__(self, max):

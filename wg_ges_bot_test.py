@@ -1,6 +1,7 @@
 import wg_ges_bot_tor_6_cities
 from wg_ges_bot_tor_6_cities import Ad, Subscriber, FilterRent, FilterGender
 from collections import defaultdict
+import pytest
 
 mitbewohnerinFuer21qm = {
     'title': 'Mitbewohnerin für 21 qm² Zimmer + gemeinsames Wohnzimmer + Balkon gesucht :)',
@@ -11,8 +12,15 @@ mitbewohnerinFuer21qm = {
     'searching_for': '🚺 gesucht'
 }
 
-nettenMenschenDict = {'title': 'Schönes helles WG Zimmer frei für netten Menschen! :)', 'size': '16m²', 'rent': '350', 'availability': 'Verfügbar: 01.03.2018 - 31.03.2018', 'wg_details': '2er WG (1w,0m) in Berlin Charlottenburg-Wilmersdorf, Quellweg', 'searching_for': '🚺 gesucht'}
-nettenMenschenString = 'Schönes helles WG Zimmer frei für netten Menschen! :)\n16m² - 350€\n2er WG (1w,0m) in Berlin Charlottenburg-Wilmersdorf, Quellweg\nVerfügbar: 01.03.2018 - 31.03.2018\n🚺 gesucht'
+nettenMenschenDict = {
+    'title': 'Schönes helles WG Zimmer frei für netten Menschen! :)',
+    'size': '16m²',
+    'rent': '350',
+    'availability': 'Verfügbar: 01.03.2018 - 31.03.2018',
+    'wg_details': '2er WG (1w,0m) in Berlin Charlottenburg-Wilmersdorf, Quellweg',
+    'searching_for': '🚺 oder 🚹 gesucht'
+}
+nettenMenschenString = 'Schönes helles WG Zimmer frei für netten Menschen! :)\n16m² - 350€\n2er WG (1w,0m) in Berlin Charlottenburg-Wilmersdorf, Quellweg\nVerfügbar: 01.03.2018 - 31.03.2018\n🚺 oder 🚹 gesucht'
 
 def test_empty_filters():
     wg_ges_bot_tor_6_cities.filters = defaultdict(dict)
@@ -56,3 +64,8 @@ def test_filter_gender_ok():
     mySubscriber.add_filter(FilterGender, 'w')
     ad = Ad.from_dict(mitbewohnerinFuer21qm)
     assert mySubscriber.is_interested_in(ad)
+
+@pytest.mark.wip
+def test_offer_to_chat_message():
+    ad = Ad.from_dict(nettenMenschenDict)
+    assert ad.to_chat_message() == nettenMenschenString
