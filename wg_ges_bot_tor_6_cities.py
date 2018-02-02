@@ -67,8 +67,8 @@ class Subscriber:
     def add_filter(self, filter_class, params):
         self.filters[filter_class] = filter_class(params)
 
-    def remove_filter(filter_class):
-        pass
+    def remove_filter(self, filter_class):
+        self.filters.pop(filter_class)
 
     def is_interested_in(self, offer):
         return all(filter.allows(offer) for filter in self.filters.values())

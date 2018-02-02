@@ -15,6 +15,22 @@ def test_empty_filters():
     wg_ges_bot_tor_6_cities.filters = defaultdict(dict)
     assert wg_ges_bot_tor_6_cities.check_filters(4711, mitbewohnerinFuer21qm) == True
 
+def test_no_duplicate_filter():
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterRent, 500)
+    assert len(mySubscriber.filters) == 1
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterRent, 500)
+    assert len(mySubscriber.filters) == 1
+
+def test_remove_filter():
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterRent, 500)
+    assert len(mySubscriber.filters) == 1
+    mySubscriber.remove_filter(FilterRent)
+    assert len(mySubscriber.filters) == 0
+
+
 def test_filter_rent_too_expensive():
     mySubscriber = Subscriber(4711)
     mySubscriber.add_filter(FilterRent, 500)
