@@ -47,6 +47,33 @@ admin_chat_id = params.admin_chat_id
 lock = Lock()
 
 
+class Offer:
+    def __init__(self, rent):
+        self.rent = int(rent)
+    def from_dict(adict):
+        return Offer(adict['rent'])
+
+class FilterRent:
+    def __init__(self, max):
+        self.max = max
+    def allows(self, offer):
+        return offer.rent <= self.max
+
+class Subscriber:
+    def __init__(self, chat_id):
+        self.chat_id = chat_id
+        self.filters = {}
+
+    def add_filter(self, filter_class, params):
+        self.filters[filter_class] = filter_class(params)
+
+    def remove_filter(filter_class):
+        pass
+
+    def is_interested_in(self, offer):
+        return all(filter.allows(offer) for filter in self.filters.values())
+
+
 def get_current_ip(tr):
     hazip = tr.get('http://icanhazip.com/')
     if len(hazip.text) > 30:

@@ -1,4 +1,5 @@
 import wg_ges_bot_tor_6_cities
+from wg_ges_bot_tor_6_cities import Offer, Subscriber, FilterRent
 from collections import defaultdict
 
 mitbewohnerinFuer21qm = {
@@ -14,8 +15,15 @@ def test_empty_filters():
     wg_ges_bot_tor_6_cities.filters = defaultdict(dict)
     assert wg_ges_bot_tor_6_cities.check_filters(4711, mitbewohnerinFuer21qm) == True
 
-def test_filter_rent():
-    wg_ges_bot_tor_6_cities.filters = defaultdict(dict)
-    wg_ges_bot_tor_6_cities.filters[4711] = {'rent': 400}
-    assert wg_ges_bot_tor_6_cities.check_filters(4711, mitbewohnerinFuer21qm) == False
+def test_filter_rent_too_expensive():
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterRent, 500)
+    offer = Offer.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.is_interested_in(offer) == False
+
+def test_filter_rent_ok():
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterRent, 600)
+    offer = Offer.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.is_interested_in(offer) == True
 
