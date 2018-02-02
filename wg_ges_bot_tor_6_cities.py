@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from random import uniform
 from fake_useragent import UserAgent
 import json
+import datetime
 
 # import some secret params from other file
 import params
@@ -48,18 +49,28 @@ lock = Lock()
 
 
 class Ad:
+    datetime_format = '%d.%m.%Y'
     def __init__(self, title, size, rent, genders, availability, wg_details):
         self.title = title
         self.size = size
         self.rent = rent
         self.genders = genders
-        self.availability = availability
         self.wg_details = wg_details
+        self.availability = availability
+
+    def available_from(self):
+        return self.availability[0]
+
+    def available_to(self):
+        return self.availability[1]
+
     def from_dict(info):
         title = info['title']
         size = info['size']
         wg_details = info['wg_details']
-        availability = info['availability']
+        availability = info['availability'].replace('Verfügbar: ', '').split(' - ')
+        availability = list(map(lambda s: datetime.datetime.strptime(s, Ad.datetime_format), availability))
+        availability.extend([None] * (2 - len(availability))) # pad with None
         rent = int(info['rent'])
         genders = []
         if '🚺' in info['searching_for']:
@@ -75,8 +86,19 @@ class Ad:
             self.size,
             self.rent,
             self.wg_details,
-            self.availability,
-            ' oder '.join(map(lambda g: gender_mapping[g], self.genders)) + ' gesucht'
+            'Verfügbar: {}'.format(
+                ' - '.join(
+                    map(
+                        lambda d: d.strftime(Ad.datetime_format),
+                        [d for d in self.availability if d is not None])
+                )
+            ),
+            ' oder '.join(
+                map(
+                    lambda g: gender_mapping[g],
+                    self.genders
+                )
+            ) + ' gesucht'
         )
 
 class FilterRent:
@@ -90,6 +112,16 @@ class FilterGender:
         self.gender = gender
     def allows(self, ad):
         return self.gender in ad.genders
+
+class FilterAvailability:
+    def __init__(self, minimal_availability):
+        self.minimal_availability = minimal_availability
+    def allows(self, ad):
+        if not (ad.available_to()):
+            return True
+        else:
+            duration = ad.available_to() - ad.available_from()
+            return duration >= self.minimal_availability
 
 class Subscriber:
     def __init__(self, chat_id):

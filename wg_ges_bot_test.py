@@ -1,13 +1,14 @@
 import wg_ges_bot_tor_6_cities
-from wg_ges_bot_tor_6_cities import Ad, Subscriber, FilterRent, FilterGender
+from wg_ges_bot_tor_6_cities import Ad, Subscriber, FilterRent, FilterGender, FilterAvailability
 from collections import defaultdict
 import pytest
+import datetime
 
 mitbewohnerinFuer21qm = {
     'title': 'Mitbewohnerin für 21 qm² Zimmer + gemeinsames Wohnzimmer + Balkon gesucht :)',
     'size': '21m²',
     'rent': '545',
-    'availability': 'Verfügbar: 01.03.2018 - 01.10.2018',
+    'availability': 'Verfügbar: 25.02.2018',
     'wg_details': '2er WG (1w,0m) in Berlin Charlottenburg, Horstweg',
     'searching_for': '🚺 gesucht'
 }
@@ -65,7 +66,34 @@ def test_filter_gender_ok():
     ad = Ad.from_dict(mitbewohnerinFuer21qm)
     assert mySubscriber.is_interested_in(ad)
 
-@pytest.mark.wip
-def test_offer_to_chat_message():
+def test_ad_to_chat_message():
     ad = Ad.from_dict(nettenMenschenDict)
     assert ad.to_chat_message() == nettenMenschenString
+
+def test_parsing_of_availability():
+    ad = Ad.from_dict(nettenMenschenDict)
+    assert ad.available_from() == datetime.datetime(day=1,  month=3, year=2018)
+    assert ad.available_to()   == datetime.datetime(day=31, month=3, year=2018)
+
+def test_parsing_of_availability():
+    ad = Ad.from_dict(mitbewohnerinFuer21qm)
+    assert ad.available_from() == datetime.datetime(day=25, month=2, year=2018)
+    assert ad.available_to()   == None
+
+def test_filter_available_3months_is_ok_forever():
+    ad = Ad.from_dict(mitbewohnerinFuer21qm)
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterAvailability, datetime.timedelta(weeks=12))
+    assert mySubscriber.is_interested_in(ad)
+
+def test_filter_available_3months_not_ok():
+    ad = Ad.from_dict(nettenMenschenDict)
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterAvailability, datetime.timedelta(weeks=12))
+    assert mySubscriber.is_interested_in(ad) == False
+
+def test_filter_available_2months_ok():
+    ad = Ad.from_dict(nettenMenschenDict)
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterAvailability, datetime.timedelta(weeks=4))
+    assert mySubscriber.is_interested_in(ad)
