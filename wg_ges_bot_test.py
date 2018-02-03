@@ -1,5 +1,4 @@
-import wg_ges_bot_tor_6_cities
-from wg_ges_bot_tor_6_cities import Ad, Subscriber, FilterRent, FilterGender, FilterAvailability, FilterCity
+from wg_ges_bot import Ad, Subscriber, FilterRent, FilterGender, FilterAvailability, FilterCity
 from collections import defaultdict
 import pytest
 import datetime
@@ -26,10 +25,6 @@ nettenMenschenDict = {
     'searching_for': '🚺 oder 🚹 gesucht'
 }
 nettenMenschenString = 'Schönes helles WG Zimmer frei für netten Menschen! :)\n16m² - 350€\n2er WG (1w,0m) in Berlin Charlottenburg-Wilmersdorf, Quellweg\nVerfügbar: 01.03.2018 - 31.03.2018\n🚺 oder 🚹 gesucht'
-
-def test_empty_filters():
-    wg_ges_bot_tor_6_cities.filters = defaultdict(dict)
-    assert wg_ges_bot_tor_6_cities.check_filters(4711, mitbewohnerinFuer21qm) == True
 
 def test_no_duplicate_filter():
     mySubscriber = Subscriber(4711)
