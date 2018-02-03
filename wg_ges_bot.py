@@ -67,41 +67,44 @@ class Ad:
                 )
             ) + ' gesucht'
         )
+class Filter():
+    def __str__(self):
+        return '{}: {}'.format(self.__class__.__name__, self.param)
 
-class FilterRent:
+class FilterRent(Filter):
     def __init__(self, max):
-        self.max = max
+        self.param = max
     def allows(self, ad):
-        return ad.rent <= self.max
+        return ad.rent <= self.param
 
-class FilterCity:
+class FilterCity(Filter):
     def __init__(self, cities):
-        self.cities = cities
+        self.param = cities
     def allows(self, ad):
-        return ad.city in self.cities
+        return ad.city in self.param
 
-class FilterGender:
+class FilterGender(Filter):
     def __init__(self, gender):
-        self.gender = gender
+        self.param = gender
     def allows(self, ad):
-        return self.gender in ad.genders
+        return self.param in ad.genders
 
-class FilterAvailability:
+class FilterAvailability(Filter):
     def __init__(self, minimal_availability):
-        self.minimal_availability = minimal_availability
+        self.param = minimal_availability
     def allows(self, ad):
         if not (ad.available_to()):
             return True
         else:
             duration = ad.available_to() - ad.available_from()
-            return duration >= self.minimal_availability
+            return duration >= self.param
 
 class Subscriber:
     def __init__(self, chat_id):
         self.chat_id = int(chat_id)
         self.filters = {}
         self.known_ads = defaultdict(lambda: None)
-        self.cities = {}
+        self.cities = set()
 
     def add_filter(self, filter_class, param):
         self.filters[filter_class] = filter_class(param)
@@ -109,8 +112,17 @@ class Subscriber:
     def remove_filter(self, filter_class):
         self.filters.pop(filter_class)
 
+    def all_filters(self):
+        return str([str(filter) for filter in self.filters.values()])
+
     def is_interested_in(self, ad):
         return all(filter.allows(ad) for filter in self.filters.values())
+
+    def subscribe(self, city):
+        self.cities.add(city)
+
+    def is_subscribed(self, city):
+        return city in self.cities
 
     def review_ads(self, ads, city):
         if self.known_ads[city] is None:
