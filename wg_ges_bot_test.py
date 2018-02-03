@@ -1,10 +1,11 @@
 import wg_ges_bot_tor_6_cities
-from wg_ges_bot_tor_6_cities import Ad, Subscriber, FilterRent, FilterGender, FilterAvailability
+from wg_ges_bot_tor_6_cities import Ad, Subscriber, FilterRent, FilterGender, FilterAvailability, FilterCity
 from collections import defaultdict
 import pytest
 import datetime
 
 mitbewohnerinFuer21qm = {
+    'city': 'ber',
     'url': 'https://www.wg-gesucht.de/wg-zimmer-in-Berlin-Charlottenburg.5761535.html',
     'title': 'Mitbewohnerin für 21 qm² Zimmer + gemeinsames Wohnzimmer + Balkon gesucht :)',
     'size': '21m²',
@@ -15,6 +16,7 @@ mitbewohnerinFuer21qm = {
 }
 
 nettenMenschenDict = {
+    'city': 'ber',
     'url': 'https://www.wg-gesucht.de/wg-zimmer-in-Berlin-Charlottenburg-Wilmersdorf.6400226.html',
     'title': 'Schönes helles WG Zimmer frei für netten Menschen! :)',
     'size': '16m²',
@@ -100,11 +102,47 @@ def test_filter_available_2months_ok():
     mySubscriber.add_filter(FilterAvailability, datetime.timedelta(weeks=4))
     assert mySubscriber.is_interested_in(ad)
 
-def test_notify():
+def test_subscriber_constructor_parses_int():
+    mySubscriber = Subscriber('4711')
+    assert mySubscriber.chat_id == 4711
+
+def test_subscriber_review_ads_returns_empty_set_on_first_run():
     mySubscriber = Subscriber(4711)
-    ad = Ad.from_dict(nettenMenschenDict)
-    assert mySubscriber.already_had(ad) == False
-    assert len(mySubscriber.known_ads) == 0
-    mySubscriber.notify(ad)
-    assert mySubscriber.already_had(ad)
-    assert len(mySubscriber.known_ads) == 1
+    ad1 = Ad.from_dict(nettenMenschenDict)
+    ad2 = Ad.from_dict(mitbewohnerinFuer21qm)
+    # this behaviour will prevent current ads to be sent to the user
+    assert mySubscriber.review_ads({ad1, ad2}) == set()
+
+def test_subscriber_review_ads_returns_new_ads():
+    mySubscriber = Subscriber(4711)
+    ad1 = Ad.from_dict(nettenMenschenDict)
+    ad2 = Ad.from_dict(mitbewohnerinFuer21qm)
+    mySubscriber.review_ads({})
+    assert mySubscriber.review_ads({ad1}) == {ad1}
+    assert mySubscriber.review_ads({ad1, ad2}) == {ad2}
+    assert mySubscriber.review_ads({ad1, ad2}) == set()
+    assert mySubscriber.review_ads({ad1, ad2}) == set()
+
+def test_subscriber_review_ads_will_resend_a_message_if_the_ad_was_upranked_from_page_two_to_one():
+    mySubscriber = Subscriber(4711)
+    ad1 = Ad.from_dict(nettenMenschenDict)
+    ad2 = Ad.from_dict(mitbewohnerinFuer21qm)
+    mySubscriber.review_ads({ad1,ad2})
+    # empty, because ad2 was in the list before
+    assert mySubscriber.review_ads({ad2}) == set()
+    # now, this behaviour happens if an ad was updated after a day
+    # it was not scraped the last time, but now it should be resent
+    assert mySubscriber.review_ads({ad1, ad2}) == {ad1}
+
+
+def test_filter_city_ok():
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterCity, ['ber'])
+    ad = Ad.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.is_interested_in(ad)
+
+def test_filter_city_not_ok():
+    mySubscriber = Subscriber(4711)
+    mySubscriber.add_filter(FilterCity, ['muc', 'stuggi'])
+    ad = Ad.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.is_interested_in(ad) == False
