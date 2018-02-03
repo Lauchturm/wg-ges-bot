@@ -1,4 +1,6 @@
 import datetime
+from collections import defaultdict
+from itertools import groupby
 
 class Ad:
     datetime_format = '%d.%m.%Y'
@@ -98,14 +100,8 @@ class Subscriber:
     def __init__(self, chat_id):
         self.chat_id = int(chat_id)
         self.filters = {}
-        self.known_ads = None
+        self.known_ads = defaultdict(lambda: None)
         self.cities = {}
-
-    def subscribe(self, city, known_ads = []):
-        self.cities[city] = known_ads
-
-    def unsubscribe(self, city):
-        self.cities.pop(city)
 
     def add_filter(self, filter_class, param):
         self.filters[filter_class] = filter_class(param)
@@ -116,15 +112,12 @@ class Subscriber:
     def is_interested_in(self, ad):
         return all(filter.allows(ad) for filter in self.filters.values())
 
-    def already_had(self, ad):
-        return ad in self.known_ads
-
-    def review_ads(self, ads):
-        if self.known_ads is None:
+    def review_ads(self, ads, city):
+        if self.known_ads[city] is None:
             # special case
             # prevent notification of current ads right after subscription
-            self.known_ads = set(ads)
+            self.known_ads[city] = set(ads)
             return set()
-        unknown_ads = set(filter(lambda ad: ad not in self.known_ads, ads))
-        self.known_ads = set(ads)
+        unknown_ads = set(filter(lambda ad: ad not in self.known_ads[city], ads))
+        self.known_ads[city] = set(ads)
         return unknown_ads

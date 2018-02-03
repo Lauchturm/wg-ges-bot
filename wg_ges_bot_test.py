@@ -106,28 +106,40 @@ def test_subscriber_review_ads_returns_empty_set_on_first_run():
     ad1 = Ad.from_dict(nettenMenschenDict)
     ad2 = Ad.from_dict(mitbewohnerinFuer21qm)
     # this behaviour will prevent current ads to be sent to the user
-    assert mySubscriber.review_ads({ad1, ad2}) == set()
+    assert mySubscriber.review_ads({ad1, ad2}, 'ber') == set()
 
 def test_subscriber_review_ads_returns_new_ads():
     mySubscriber = Subscriber(4711)
     ad1 = Ad.from_dict(nettenMenschenDict)
     ad2 = Ad.from_dict(mitbewohnerinFuer21qm)
-    mySubscriber.review_ads({})
-    assert mySubscriber.review_ads({ad1}) == {ad1}
-    assert mySubscriber.review_ads({ad1, ad2}) == {ad2}
-    assert mySubscriber.review_ads({ad1, ad2}) == set()
-    assert mySubscriber.review_ads({ad1, ad2}) == set()
+    mySubscriber.review_ads({}, 'ber')
+    assert mySubscriber.review_ads({ad1}, 'ber') == {ad1}
+    assert mySubscriber.review_ads({ad1, ad2}, 'ber') == {ad2}
+    assert mySubscriber.review_ads({ad1, ad2}, 'ber') == set()
+    assert mySubscriber.review_ads({ad1, ad2}, 'ber') == set()
 
-def test_subscriber_review_ads_will_resend_a_message_if_the_ad_was_upranked_from_page_two_to_one():
+def test_subscriber_review_ads_drops_old_ads():
     mySubscriber = Subscriber(4711)
     ad1 = Ad.from_dict(nettenMenschenDict)
     ad2 = Ad.from_dict(mitbewohnerinFuer21qm)
-    mySubscriber.review_ads({ad1,ad2})
+    mySubscriber.review_ads({ad1,ad2}, 'ber')
     # empty, because ad2 was in the list before
-    assert mySubscriber.review_ads({ad2}) == set()
+    assert mySubscriber.review_ads({ad2}, 'ber') == set()
     # now, this behaviour happens if an ad was updated after a day
     # it was not scraped the last time, but now it should be resent
-    assert mySubscriber.review_ads({ad1, ad2}) == {ad1}
+    assert mySubscriber.review_ads({ad1, ad2}, 'ber') == {ad1}
+
+def test_subscriber_review_ads_drops_old_ads_for_that_city():
+    mySubscriber = Subscriber(4711)
+    ad1 = Ad.from_dict(nettenMenschenDict)
+    ad2 = Ad.from_dict(mitbewohnerinFuer21qm)
+    assert mySubscriber.review_ads({ad1}, 'ber') == set()
+    assert mySubscriber.review_ads({ad2}, 'muc') == set()
+    assert mySubscriber.review_ads({ad1}, 'ber') == set()
+    assert mySubscriber.review_ads({},    'ber') == set()
+    assert mySubscriber.review_ads({ad1}, 'ber') == {ad1}
+    # these two sets are completely independent of each other
+    assert mySubscriber.review_ads({ad2}, 'muc') == set()
 
 
 def test_filter_city_ok():
