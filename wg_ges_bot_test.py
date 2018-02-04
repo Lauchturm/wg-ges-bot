@@ -149,7 +149,6 @@ def test_subscriber_review_ads_drops_old_ads_for_that_city():
     assert mySubscriber.already_had(ad1)
     assert mySubscriber.already_had(ad2) == False
 
-
 def test_filter_city_ok():
     mySubscriber = Subscriber(4711)
     mySubscriber.add_filter(FilterCity, ['ber'])
@@ -161,6 +160,11 @@ def test_filter_city_not_ok():
     mySubscriber.add_filter(FilterCity, ['muc', 'stuggi'])
     ad = Ad.from_dict(mitbewohnerinFuer21qm)
     assert mySubscriber.is_interested_in(ad) == False
+
+def test_filter_city_ok():
+    mySubscriber = Subscriber(4711)
+    mySubscriber.subscribe('stuggi')
+    assert mySubscriber.all_filters() == '[\'FilterCity: stuggi\']'
 
 def test_filter_to_string():
     assert str(FilterRent(500)) == 'FilterRent: 500'
