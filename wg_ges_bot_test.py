@@ -141,6 +141,14 @@ def test_subscriber_review_ads_drops_old_ads_for_that_city():
     # these two sets are completely independent of each other
     assert mySubscriber.review_ads({ad2}, 'muc') == set()
 
+def test_subscriber_review_ads_drops_old_ads_for_that_city():
+    mySubscriber = Subscriber(4711)
+    ad1 = Ad.from_dict(nettenMenschenDict)
+    ad2 = Ad.from_dict(mitbewohnerinFuer21qm)
+    mySubscriber.review_ads({ad1}, 'ber') == set()
+    assert mySubscriber.already_had(ad1)
+    assert mySubscriber.already_had(ad2) == False
+
 
 def test_filter_city_ok():
     mySubscriber = Subscriber(4711)

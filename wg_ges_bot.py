@@ -133,3 +133,6 @@ class Subscriber:
         unknown_ads = set(filter(lambda ad: ad not in self.known_ads[city], ads))
         self.known_ads[city] = set(ads)
         return unknown_ads
+
+    def already_had(self, ad):
+        return any(ad in known_ads for known_ads in self.known_ads.values())
