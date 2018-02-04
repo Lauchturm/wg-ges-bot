@@ -112,14 +112,12 @@ class Subscriber:
     def remove_filter(self, filter_class):
         self.filters.pop(filter_class)
 
-    def all_filters(self):
-        return str([str(filter) for filter in self.filters.values()])
-
     def is_interested_in(self, ad):
         return all(filter.allows(ad) for filter in self.filters.values())
 
     def subscribe(self, city):
         self.cities.add(city)
+        self.add_filter(FilterCity, self.cities)
 
     def is_subscribed(self, city):
         return city in self.cities

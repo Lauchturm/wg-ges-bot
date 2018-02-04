@@ -164,14 +164,9 @@ def test_filter_city_not_ok():
 def test_filter_city_ok():
     mySubscriber = Subscriber(4711)
     mySubscriber.subscribe('stuggi')
-    assert mySubscriber.all_filters() == '[\'FilterCity: stuggi\']'
+    assert mySubscriber.filters[FilterCity].param == {'stuggi'}
+    mySubscriber.subscribe('muc')
+    assert mySubscriber.filters[FilterCity].param == {'stuggi', 'muc'}
 
 def test_filter_to_string():
     assert str(FilterRent(500)) == 'FilterRent: 500'
-
-def test_admin_filters_to_string():
-    admin = Subscriber(4711)
-    admin.add_filter(FilterRent, 300)
-    admin.add_filter(FilterGender, 'm')
-    admin.add_filter(FilterAvailability, datetime.timedelta(weeks=4))
-    assert admin.all_filters() == "['FilterRent: 300', 'FilterGender: m', 'FilterAvailability: 28 days, 0:00:00']"
