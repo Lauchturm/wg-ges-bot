@@ -14,6 +14,7 @@ from random import uniform
 from fake_useragent import UserAgent
 import json
 from textwrap import wrap
+from typing import List
 
 # import some secret params from other file
 import params
@@ -33,7 +34,6 @@ max_consecutive_tor_reqs = 2000
 consecutive_tor_reqs = 0
 torip = None
 
-
 subscribers = {}
 current_ads = defaultdict(dict)
 
@@ -41,7 +41,6 @@ current_ads = defaultdict(dict)
 admin_chat_id = params.admin_chat_id
 
 lock = Lock()
-
 
 
 def get_current_ip(tr):
@@ -90,29 +89,33 @@ def tor_request(url: str):
                 return page
 
 
-
-def get_ads_from_listings(listings: list, city: str, first_run=False) -> dict:
+def get_ads_from_listings(listings: List[BeautifulSoup], city: str, first_run=False) -> set:
     new_ads = set()
     for listing in listings:
         links = listing.find_all('a', class_='detailansicht')
         link_to_offer = 'https://www.wg-gesucht.de/{}'.format(links[0].get_attribute_list('href')[0])
-
         logging.info('new offer: {}'.format(link_to_offer))
 
         price_wrapper = listing.find(class_="detail-size-price-wrapper")
         link_named_price = price_wrapper.find(class_="detailansicht")
-        size, rent = link_named_price.text.replace(' ', '').replace('\n', '').replace('€', '').split('-')
+
+        # print(list(link_named_price.children))
+        size, rent = next(link_named_price.children).replace(' ', '').replace('\n', '').replace('€', '').split('|')
+        mates = link_named_price.find('span').get_attribute_list('title')[0]
+        # print(mates)
+        searching_for = link_named_price.find_all('img')[-1].get_attribute_list('alt')[0].replace(
+            'Mitbewohnerin', '🚺').replace('Mitbwohner', '🚹').replace('Mitbewohner', '🚹')
 
         headline = listing.find(class_='headline-list-view')
-        mates = headline.find('span').get_attribute_list('title')[0]
+        # mates = headline.find('span').get_attribute_list('title')[0]
         # emojis read faster -- also note the typo from the page missing the first e in mitbewohner
-        searching_for = headline.find_all('img')[-1].get_attribute_list('alt')[0].replace('Mitbewohnerin', '🚺')
-        searching_for = searching_for.replace('Mitbwohner', '🚹').replace('Mitbewohner', '🚹')
+        # searching_for = headline.find_all('img')[-1].get_attribute_list('alt')[0].replace('Mitbewohnerin', '🚺')
+        # searching_for = searching_for.replace('Mitbwohner', '🚹').replace('Mitbewohner', '🚹')
         title = headline.find('a').text.replace('\n', '').strip()
 
         location_and_availability = listing.find('p')
         location_and_availability_split = location_and_availability.text[
-                                            location_and_availability.text.index('in'):].replace('\n', '').split()
+                                          location_and_availability.text.index('in'):].replace('\n', '').split()
         index_avail = location_and_availability_split.index('Verfügbar:')
         location = ' '.join(location_and_availability_split[:index_avail])
         availability = ' '.join(location_and_availability_split[index_avail:])
@@ -166,7 +169,7 @@ def job_scrape_city(bot: Bot, job: Job):
 
 def job_notify_subscriber(bot: Bot, job: Job):
     chat_id = job.context['chat_id']
-    city    = job.context['city']
+    city = job.context['city']
     subscriber = subscribers[chat_id]
     try:
         interesting_ads = list(filter(lambda ad: subscriber.is_interested_in(ad), current_ads[city]))
@@ -188,7 +191,7 @@ def scrape_begin_all(bot: Bot, update: Update, job_queue: JobQueue, chat_data):
 
 def scrape_begin_city(bot: Bot, update: Update, job_queue: JobQueue, chat_data, city=None):
     if not city:
-        city = update.message.text[19:].lower() # 19 characters is len('/scrape_begin_city ')
+        city = update.message.text[19:].lower()  # 19 characters is len('/scrape_begin_city ')
     if city in URLS.keys():
         jobs_for_same_city = [job for job in job_queue.jobs() if job.context == city]
         if jobs_for_same_city:
@@ -229,7 +232,6 @@ def scrape_stop_city(bot: Bot, update: Update, chat_data, city=None):
 
 
 def subscribe_city_cmd(bot: Bot, update: Update, job_queue: JobQueue, chat_data, city=None):
-
     if not city:
         city = update.message.text[11:].lower()
     if city in all_cities:
@@ -251,7 +253,6 @@ def subscribe_city_cmd(bot: Bot, update: Update, job_queue: JobQueue, chat_data,
             subscriber = subscribers[chat_id]
             subscriber.subscribe(city)
 
-
             logging.info('{} subbed {}'.format(chat_id, city))
             update.message.reply_text(
                 'Erfolgreich {} abboniert, jetzt heißt es warten auf die neue Bude.\n'
@@ -268,7 +269,8 @@ def subscribe_city_cmd(bot: Bot, update: Update, job_queue: JobQueue, chat_data,
                                       'Verfügbare Städte: {} '
                                       'Beispiel: /subscribe MUC'.format(city, all_cities_string))
         else:
-            update.message.reply_text('In {} gibt\'s mich nicht, sorry. Verfügbare Städte: {}'.format(city, all_cities_string))
+            update.message.reply_text(
+                'In {} gibt\'s mich nicht, sorry. Verfügbare Städte: {}'.format(city, all_cities_string))
 
 
 def unsubscribe_cmd(bot: Bot, update: Update, chat_data):
@@ -420,7 +422,6 @@ def admin_filters_cmd(bot: Bot, update: Update):
         update.message.reply_text('Admin has no subscriptions yet.')
 
 
-
 def current_ads_cmd(bot: Bot, update: Update):
     if not current_ads:
         update.message.reply_text('No ads for any city')
@@ -431,10 +432,10 @@ def current_ads_cmd(bot: Bot, update: Update):
             update.message.reply_text(chunk)
 
 
-def current_offers_count(bot: Bot, update: Update):
-    offercounts = {city: len(offers) for city, offers in current_offers.items()}
-    print(offercounts)
-    update.message.reply_text(json.dumps(offercounts))
+# def current_offers_count(bot: Bot, update: Update):
+#     offercounts = {city: len(offers) for city, offers in current_offers.items()}
+#     print(offercounts)
+#     update.message.reply_text(json.dumps(offercounts))
 
 
 def error(bot: Bot, update: Update, error):
@@ -457,7 +458,7 @@ if __name__ == '__main__':
                         level=logging.INFO)
     logging.info('starting bot')
 
-    updater = Updater(token=params.token)
+    updater = Updater(token=params.tmptest_bot_token)
 
     # all handlers need to be added to dispatcher, order matters
     dispatcher = updater.dispatcher
@@ -505,5 +506,3 @@ if __name__ == '__main__':
 
     # to make killing per ctrl+c possible
     updater.idle()
-
-
