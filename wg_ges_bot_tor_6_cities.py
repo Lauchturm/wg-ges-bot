@@ -36,7 +36,7 @@ max_consecutive_tor_reqs = 2000
 consecutive_tor_reqs = 0
 torip = None
 
-subscribers = {}
+subscribers: Dict[int, Subscriber] = {}
 current_ads = defaultdict(dict)
 
 # person with permission to start and stop scraper and debugging commands
@@ -239,31 +239,36 @@ def subscribe_city_cmd(bot: Bot, update: Update, job_queue: JobQueue, chat_data,
     if city in all_cities:
         chat_id = update.message.chat_id
         if chat_id in subscribers and subscribers[chat_id].is_subscribed(city):
-            update.message.reply_text('Das Abo lief schon. /unsubscribe für Stille im Postfach oder um die Stadt zu '
-                                      'wechseln.')
+            update.message.reply_text('Dein Abo für {} lief schon. /unsubscribe für Stille im Postfach.'.format(city))
         else:
             context = {'chat_id': chat_id, 'city': city}
             job = job_queue.run_repeating(callback=job_notify_subscriber, interval=15, first=1, context=context)
             try:
-                chat_data['job'] = job
+                try:
+                    old_jobs = chat_data['jobs']
+                    if old_jobs is None:
+                        old_jobs = []
+                except KeyError:
+                    old_jobs = []
+                old_jobs.append(job)
+                chat_data['jobs'] = old_jobs
             except Unauthorized:
                 logging.warning('unauthorized in job notify. removing job')
                 job.schedule_removal()
                 return
-            if not chat_id in subscribers:
+
+            if chat_id not in subscribers:
                 subscribers[chat_id] = Subscriber(chat_id)
-            subscriber = subscribers[chat_id]
-            subscriber.subscribe(city)
+            subscribers[chat_id].subscribe(city)
 
             logging.info('{} subbed {}'.format(chat_id, city))
             update.message.reply_text(
-                'Erfolgreich {} abboniert, jetzt heißt es warten auf die neue Bude.\n'
-                'Zieh die Mietpreisbremse in deinem Kopf und erhalte keine Anzeigen mehr, die du dir eh nicht '
-                'leisten kannst mit /filter_rent. Bsp: "/filter_rent 500" für Anzeigen bis 500€.\n'
-                'Mit /filter_sex kannst du Angebote herausfiltern, die nicht für dein Geschlecht sind. Bsp: '
-                '"/filter_sex m" oder eben w.\n'
-                'Beende Benachrichtigungen mit /unsubscribe. Über Feedback oder Fehler an wg-ges-bot@web.de würde ich '
-                'mich freuen'.format(city)
+                'Erfolgreich {} abboniert, du liegst jetzt auf der Lauer. Nützliche Filter Beispiele:\n'
+                '"/filter_rent 500" - nur Anzeigen bis 500€\n'
+                '"/filter_sex m" - keine Anzeigen die nur Frauen suchen\n'
+                '"/filter_from 16.03.2018" - keine Anzeigen die erst später frei werden. Datumsformat muss stimmen.\n'
+                '"/filter_to 17.03.2018" - keine Anzeigen die nur kürzer frei sind. Datumsformat muss stimmen.\n'
+                '"/unsubscribe" - Stille'.format(city)
             )
     else:
         if city == '':
@@ -278,23 +283,24 @@ def subscribe_city_cmd(bot: Bot, update: Update, job_queue: JobQueue, chat_data,
 def unsubscribe_cmd(bot: Bot, update: Update, chat_data):
     chat_id = update.message.chat_id
     try:
-        if 'job' not in chat_data:
+        if 'jobs' not in chat_data:
+            # if 'jobs' not in chat_data:
             update.message.reply_text(
-                'Du hast kein aktives Abo, das ich beenden könnte. Erhalte Benachrichtigungen mit /subscribe '
-                '_Stadtkürzel_. Verfügbare Städte: {}.'.format(all_cities_string),
+                'Du hast kein aktives Abo, das ich beenden könnte. Erhalte Benachrichtigungen mit "/subscribe '
+                '_Stadtkürzel_". Verfügbare Städte: {}.'.format(all_cities_string),
                 parse_mode=ParseMode.MARKDOWN
             )
         else:
-            logging.info('{} unsubbed'.format(chat_id))
-            subscribers.pop(chat_id)
-            job = chat_data['job']
-            job.schedule_removal()
-            del chat_data['job']
+            for job in chat_data['jobs']:
+                job.schedule_removal()
+            del chat_data['jobs']
 
+            subscribers.pop(chat_id)
+
+            logging.info('{} unsubbed'.format(chat_id))
             update.message.reply_text(
                 'Abo erfolgreich beendet - Du hast deine TraumWG hoffentlich gefunden. Wenn ich dir dabei geholfen habe'
-                ', dann schreib mir an wg-ges-bot@web.de. Ich würde mich freuen. Wenn du mir aus '
-                'Freude darüber sogar eine Spezi (nur Paulaner!) ausgeben möchtest, dann schreib mir gerne auch :)\n'
+                ', dann schreib mir eine frohe Mail an wg-ges-bot@web.de und lad mich zur Einweihungsparty ein!\n'
                 'Um erneut per /subscribe zu abonnieren musst du einige Sekunden warten.'
             )
     except Unauthorized:
