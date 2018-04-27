@@ -3,7 +3,8 @@ from wg_ges_bot import Ad, Subscriber, FilterRent, FilterGender, FilterAvailabil
 
 from telegram.ext import CommandHandler, Updater, Filters, JobQueue, Job
 from telegram import Bot, Update, ParseMode
-from telegram.error import Unauthorized
+from telegram.error import Unauthorized, TimedOut
+
 from collections import defaultdict
 import datetime
 import logging
@@ -14,9 +15,8 @@ from torrequest import TorRequest
 from bs4 import BeautifulSoup
 from random import uniform
 from fake_useragent import UserAgent
-import json
 from textwrap import wrap
-from typing import List
+from typing import List, Dict, Any
 
 # import some secret params from other file
 import params
@@ -42,7 +42,7 @@ current_ads = defaultdict(dict)
 # person with permission to start and stop scraper and debugging commands
 admin_chat_id = params.admin_chat_id
 
-lock = Lock()
+tor_lock = Lock()
 
 
 def get_current_ip(tr):
@@ -69,7 +69,7 @@ def tor_request(url: str):
         'User-Agent': ua.random,
     }
     with TorRequest(proxy_port=9050, ctrl_port=9051, password=params.tor_pwd) as tr:
-        with lock:
+        with tor_lock:
             time.sleep(uniform(TIME_BETWEEN_REQUESTS, TIME_BETWEEN_REQUESTS + 2))
             page = tr.get(url, headers=headers)
             if 'Nutzungsaktivitäten, die den Zweck haben' in page.text:
@@ -96,7 +96,7 @@ def get_ads_from_listings(listings: List[BeautifulSoup], city: str, first_run=Fa
     for listing in listings:
         links = listing.find_all('a', class_='detailansicht')
         link_to_offer = 'https://www.wg-gesucht.de/{}'.format(links[0].get_attribute_list('href')[0])
-        logging.info('new offer: {}'.format(link_to_offer))
+        # logging.info('new offer: {}'.format(link_to_offer))
 
         price_wrapper = listing.find(class_="detail-size-price-wrapper")
         link_named_price = price_wrapper.find(class_="detailansicht")
@@ -310,16 +310,17 @@ def unsubscribe_cmd(bot: Bot, update: Update, chat_data):
 def filter_rent(bot: Bot, update: Update):
     chat_id = update.message.chat_id
     query = ''
+
+    helptext = 'Nutzung: /filter_rent <max Miete>. Bsp: /filter_rent 540\n' \
+               'Mietenfilter zurücksetzen per "/filter_rent 0"'
+
     try:
         query = update.message.text[13:].replace('€', '')
         rent = int(query)
     except Exception as e:
         logging.info('something failed at /filter_rent: {}'.format(e))
 
-        update.message.reply_text(
-            'Nutzung: /filter_rent <max Miete>. Bsp: /filter_rent 540\n'
-            'Mietenfilter zurücksetzen per "/filter_rent 0"'
-        )
+        update.message.reply_text(helptext)
     else:
         if rent:
             subscribers[chat_id].add_filter(FilterRent, rent)
@@ -330,20 +331,27 @@ def filter_rent(bot: Bot, update: Update):
             )
         # case rent = 0 -> reset filter
         else:
-            logging.info('{} reset rent filter'.format(chat_id))
-            update.message.reply_text('Max Miete Filter erfolgreich zurückgesetzt.')
+            try:
+                subscribers[chat_id].remove_filter(FilterRent)
+            except KeyError:
+                logging.info('{} tried to reset rent filter but it wasnt set'.format(chat_id))
+                update.message.reply_text('Kein Filter zum Zurücksetzen vorhanden\n{}'.format(helptext))
+            else:
+                logging.info('{} reset rent filter'.format(chat_id))
+                update.message.reply_text('Max Miete Filter erfolgreich zurückgesetzt.')
 
 
 def filter_sex(bot: Bot, update: Update):
     chat_id = update.message.chat_id
     sex = ''
+
+    helptext = 'Nutzung: /filter_sex <dein Geschlecht>, also "/filter_sex m" oder "/filter_sex w"\n' \
+               'Geschlechterfilter zurücksetzen per "/filter_sex 0"'
+
     try:
-        sex = update.message.text[12:].lower()
+        sex = update.message.text[12:].lower()  # length of "/filter_sex "
     except Exception as e:
         logging.info('something failed at /filter_sex: {}'.format(e))
-
-        helptext = 'Nutzung: /filter_sex <dein Geschlecht>, also "/filter_sex m" oder "/filter_sex w"\n' \
-                   'Geschlechterfilter zurücksetzen per "/filter_sex 0"'
 
         update.message.reply_text(helptext)
     else:
@@ -356,12 +364,17 @@ def filter_sex(bot: Bot, update: Update):
             }
             update.message.reply_text(
                 'Alles klar, du bekommst ab jetzt nur noch Angebote für {}.\n'
-                'Zum zurücksetzen des Filters "/filter_sex 0" schreiben.'.format(sex_verbose[sex])
+                'Zum Filter zurücksetzen "/filter_sex 0" schreiben.'.format(sex_verbose[sex])
             )
         elif sex == '0':
-            subscribers[chat_id].remove_filter(FilterGender)
-            logging.info('{} reset sex filter'.format(chat_id))
-            update.message.reply_text('Gut, du bekommst ab jetzt wieder Angebote für Männer, sowie für Frauen.')
+            try:
+                subscribers[chat_id].remove_filter(FilterGender)
+            except KeyError:
+                logging.info('{} tried to reset sex filter but it wasnt set'.format(chat_id))
+                update.message.reply_text('Kein Filter zum Zurücksetzen vorhanden\n{}'.format(helptext))
+            else:
+                logging.info('{} reset sex filter'.format(chat_id))
+                update.message.reply_text('Gut, du bekommst ab jetzt wieder Angebote für Männer, sowie für Frauen.')
         else:
             helptext = 'Nutzung: /filter_sex <dein Geschlecht>, also "/filter_sex m" oder "/filter_sex w"\n' \
                        'Geschlechterfilter zurücksetzen per "/filter_sex 0"'
@@ -441,17 +454,12 @@ def filter_to(bot: Bot, update: Update):
 
 def start(bot: Bot, update: Update):
     update.message.reply_text(
-        'Sei gegrüßt, _Mensch_\n'
-        'ich bin dein Telegram Helferchen Bot für wg-gesucht.de.\n'
-        'Die Benutzung ist kinderleicht: /subscribe <Stadtkürzel> um Nachrichten zu neuen Anzeigen zu erhalten und '
-        '/unsubscribe, sobald du diese nicht mehr benötigst. Städte sind: {}.\n'
-        'Ich wünsche viel Erfolg für die Wohnungssuche und hoffe, ich kann dir dabei eine Hilfe sein.\n'
-        '_Beep Boop_\n\n'
-        'Ich bin *NICHT* von wg-gesucht, sondern ein privates Projekt, um Wohnungssuchenden zu helfen. Mit mir werden '
-        'weder finanzielle Ziele verfolgt, noch will man mit mir der Seite oder Anderen Schaden zufügen. Die Anzeigen '
-        'und jeglicher Inhalt befinden sich weiterhin auf wg-gesucht.de und der Kontakt zu den Inserenten findet auch '
-        'dort statt.'.format(all_cities),
-        parse_mode=ParseMode.MARKDOWN,
+        'Huhu, ich bin dein Telegram Helferchen Bot für wg-gesucht.de.\n'
+        'Schreib einfach "/subscribe muc" für Anzeigen aus München oder {} für andere Städte.\n'
+        'Ich wünsche viel Erfolg bei der Wohnungssuche.\n\n'
+        'Ich bin NICHT von wg-gesucht, sondern ein privates Projekt, um Wohnungssuchenden zu helfen. Mit mir werden '
+        'weder finanzielle Ziele verfolgt, noch Daten gespeichert, noch will man mit mir der Seite oder Anderen Schaden '
+        'zufügen.'.format(all_cities_string)
     )
 
 
@@ -510,15 +518,15 @@ def current_ads_cmd(bot: Bot, update: Update):
             update.message.reply_text(chunk)
 
 
-# def current_offers_count(bot: Bot, update: Update):
-#     offercounts = {city: len(offers) for city, offers in current_offers.items()}
-#     print(offercounts)
-#     update.message.reply_text(json.dumps(offercounts))
-
-
 def error(bot: Bot, update: Update, error):
     """Log Errors caused by Updates."""
-    logging.warning('Update "%s" caused error "%s"', update, error)
+    try:
+        logging.warning('Update "%s" caused error "%s"', update, error)
+    except TimedOut:
+        pass
+    except Unauthorized as e:
+        # TODO kill user
+        logging.warning('Threw out user {} because of Unauthorized Error')
 
 
 if __name__ == '__main__':
@@ -536,7 +544,7 @@ if __name__ == '__main__':
                         level=logging.INFO)
     logging.info('starting bot')
 
-    updater = Updater(token=params.tmptest_bot_token)
+    updater = Updater(token=params.tmptest_bot_token, workers=12)
 
     # all handlers need to be added to dispatcher, order matters
     dispatcher = updater.dispatcher
