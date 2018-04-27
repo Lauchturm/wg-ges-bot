@@ -1,4 +1,6 @@
-from wg_ges_bot import Ad, Subscriber, FilterRent, FilterGender, FilterAvailability, FilterCity
+from wg_ges_bot import Ad, Subscriber, FilterRent, FilterGender, FilterAvailability, FilterCity, FilterAvailableFrom, \
+    FilterAvailableTo
+
 from telegram.ext import CommandHandler, Updater, Filters, JobQueue, Job
 from telegram import Bot, Update, ParseMode
 from telegram.error import Unauthorized
@@ -361,6 +363,76 @@ def filter_sex(bot: Bot, update: Update):
             update.message.reply_text(helptext)
 
 
+def filter_from(bot: Bot, update: Update):
+    chat_id = update.message.chat_id
+    needed_from = ''
+    helptext = 'Nutzung: /filter_from <Datum>, zb "/filter_from 14.01.2019". Das Datumsformat muss stimmen.\n' \
+               'So bekommst du bspw. keine Anzeigen die erst ab 1.02.19 frei sind.'
+
+    try:
+        needed_from = update.message.text[13:].lower()
+    except Exception as e:
+        logging.info('something failed at /filter_from: {}'.format(e))
+        update.message.reply_text(helptext)
+    else:
+        if needed_from == '0':
+            try:
+                subscribers[chat_id].remove_filter(FilterAvailableFrom)
+            except KeyError:
+                logging.info('{} tried to reset avail_from filter but it wasnt set'.format(chat_id))
+                update.message.reply_text('Kein Filter zum Zurücksetzen vorhanden\n{}'.format(helptext))
+            else:
+                logging.info('{} reset avail_from filter'.format(chat_id))
+                update.message.reply_text('filter_from zurückgesetzt. Du bekommst wieder Angebote die ab jeglichem '
+                                          'Zeitpunkt frei sind.')
+        else:
+            try:
+                needed_from_date = datetime.datetime.strptime(needed_from, Ad.datetime_format)
+            except Exception as e:
+                logging.info('something failed in /filter_from: {}'.format(e))
+                update.message.reply_text(helptext)
+            else:
+                subscribers[chat_id].add_filter(FilterAvailableFrom, param=needed_from_date)
+                logging.info('{} set avail_from filter to {}'.format(chat_id, needed_from))
+                update.message.reply_text('Gut, du bekommst nur noch Anzeigen die spätestens ab {} frei sind.\n'
+                                          'Zum Filter zurücksetzen "/filter_from 0" schreiben.'.format(needed_from))
+
+
+def filter_to(bot: Bot, update: Update):
+    chat_id = update.message.chat_id
+    needed_until = ''
+    helptext = 'Nutzung: /filter_to <Datum>, zb "/filter_to 14.01.2019". Das Datumsformat muss stimmen.\n' \
+               'So bekommst du bspw. keine Anzeigen die nur bis 23.12.2018 frei sind.'
+
+    try:
+        needed_until = update.message.text[11:].lower()
+    except Exception as e:
+        logging.info('something failed at /filter_to: {}'.format(e))
+        update.message.reply_text(helptext)
+    else:
+        if needed_until == '0':
+            try:
+                subscribers[chat_id].remove_filter(FilterAvailableTo)
+            except KeyError:
+                logging.info('{} tried to reset avail_to filter but it wasnt set'.format(chat_id))
+                update.message.reply_text('Kein Filter zum Zurücksetzen vorhanden\n{}'.format(helptext))
+            else:
+                logging.info('{} reset avail_to filter'.format(chat_id))
+                update.message.reply_text('filter_to zurückgesetzt. Du bekommst wieder Angebote die bis zu jeglichem '
+                                          'Zeitpunkt frei sind.')
+        else:
+            try:
+                needed_until_date = datetime.datetime.strptime(needed_until, Ad.datetime_format)
+            except Exception as e:
+                logging.info('something failed in /filter_to: {}'.format(e))
+                update.message.reply_text(helptext)
+            else:
+                subscribers[chat_id].add_filter(FilterAvailableTo, param=needed_until_date)
+                logging.info('{} set avail_to filter to {}'.format(chat_id, needed_until))
+                update.message.reply_text('Gut, du bekommst nur noch Anzeigen die mindestens bis {} frei sind.\n'
+                                          'Zum Filter zurücksetzen "/filter_to 0" schreiben.'.format(needed_until))
+
+
 def start(bot: Bot, update: Update):
     update.message.reply_text(
         'Sei gegrüßt, _Mensch_\n'
@@ -475,6 +547,8 @@ if __name__ == '__main__':
         # more filters for the users?
         CommandHandler('filter_rent', filter_rent),
         CommandHandler('filter_sex', filter_sex),
+        CommandHandler('filter_from', filter_from),
+        CommandHandler('filter_to', filter_to),
 
         # admin queries
         CommandHandler('scrape_begin', scrape_begin_all, pass_job_queue=True, pass_chat_data=True,
