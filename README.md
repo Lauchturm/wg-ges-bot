@@ -20,7 +20,8 @@ Ich bin NICHT von [wg-gesucht.de](), sondern ein Privatprojekt. Ich verdiene nic
 nicht vor. Ich möchte weder der Seite noch euch oder Anderen Schaden zufügen. Ich speichere weder eure Daten, noch die
 der Website und gebe auch keine Daten an Dritte weiter.
 
-English:  
+English:
+- 
 I'm a chatbot notifying you about new offers from [wg-gesucht.de](). You'll need Telegram (a messenger just like 
 Whatsapp) to use me. Get it on [t.me]() and find me via [t.me/wg_ges_bot]() or searching @wg_ges_bot in the Telegram App.
 
@@ -30,3 +31,17 @@ me. I'll help you with the small code changes, but you'll need to run it yoursel
 Disclaimer:  
 I'm not connected to [wg-gesucht.de](). I don't save any of your data or give it to others. I don't make any money with 
 this, nor do i plan to ever do so. I don't intend to inflict any damage to you, [wg-gesucht.de]() or others.
+
+Installation:
+-
+- install tor [https://www.torproject.org/docs/]() and set up the controlport 9051 and a password. This might help: 
+[https://stackoverflow.com/questions/30286293/make-requests-using-python-over-tor]()
+- get Telegram at [https://t.me]() and speak to the Botfather to get your Bot Token.
+- create a params.py file and populate it according to params_template.py
+- install the required python packages
+- run wg_ges_bot_tor_6_cities.py
+- write the Bot "/scrape_begin" from an admin account
+- Edit the URLs (or whatever else) to your liking
+- If you run this for a different set of cities please let me know so I can link you here
+
+Thank you [https://github.com/python-telegram-bot/python-telegram-bot]() for the great wrapper (that i couldn't refuse).
