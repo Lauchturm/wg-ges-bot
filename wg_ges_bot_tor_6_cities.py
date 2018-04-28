@@ -177,7 +177,7 @@ def job_notify_subscriber(bot: Bot, job: Job):
         interesting_ads = list(filter(lambda ad: subscriber.is_interested_in(ad), current_ads[city]))
         new_ads = subscriber.review_ads(interesting_ads, city)
         for new_ad in new_ads:
-            bot.sendMessage(chat_id=chat_id, text=new_ad.to_chat_message())
+            bot.sendMessage(chat_id=chat_id, text=new_ad.to_chat_message(), disable_web_page_preview=True)
     except Unauthorized:
         logging.warning('unauthorized in job notify. removing job')
         subscribers.pop(chat_id)
