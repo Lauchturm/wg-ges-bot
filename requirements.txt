@@ -1,6 +1,5 @@
 beautifulsoup4==4.6.0
 fake_useragent==0.1.10
-params==0.4.2
 pytest==3.5.1
 stem==1.6.0
 python-telegram-bot==10.0.2
