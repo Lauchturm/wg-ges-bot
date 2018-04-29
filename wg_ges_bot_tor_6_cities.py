@@ -544,7 +544,7 @@ if __name__ == '__main__':
                         level=logging.INFO)
     logging.info('starting bot')
 
-    updater = Updater(token=params.tmptest_bot_token, workers=12)
+    updater = Updater(token=params.token, workers=12)
 
     # all handlers need to be added to dispatcher, order matters
     dispatcher = updater.dispatcher
