@@ -36,7 +36,7 @@ max_consecutive_tor_reqs = 2000
 consecutive_tor_reqs = 0
 torip = None
 
-subscribers: Dict[int, Subscriber] = {}
+subscribers = {}
 current_ads = defaultdict(dict)
 
 # person with permission to start and stop scraper and debugging commands
@@ -518,6 +518,13 @@ def current_ads_cmd(bot: Bot, update: Update):
             update.message.reply_text(chunk)
 
 
+def save_ids(bot: Bot, update:Update):
+    logging.info('logging all active chat ids:')
+    for chat_id in subscribers.keys():
+        logging.info('{} active chat_id'.format(chat_id))
+    update.message.reply_text('logging all active chat_ids!')
+
+
 def error(bot: Bot, update: Update, error):
     """Log Errors caused by Updates."""
     try:
@@ -578,7 +585,7 @@ if __name__ == '__main__':
         CommandHandler('already_had', already_had_cmd, filters=Filters.user(admin_chat_id)),
         CommandHandler('current_ads', current_ads_cmd, filters=Filters.user(admin_chat_id)),
         CommandHandler('admin_filters', admin_filters_cmd, filters=Filters.user(admin_chat_id)),
-        CommandHandler('kill_humans', kill_humans)
+        CommandHandler('save_ids', save_ids, filters=Filters.user(admin_chat_id))
     ]
 
     # handlers need to be added to the dispatcher in order to work
